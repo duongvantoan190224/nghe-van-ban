@@ -8,6 +8,12 @@
 <style>
 body{font-family:-apple-system,system-ui,sans-serif;margin:0;padding:16px;padding-bottom:env(safe-area-inset-bottom);background:#f2f2f7;color:#111}
 main{max-width:600px;margin:auto}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+header h1{margin:0.67em 0}
+button.settings{width:auto;margin:0;padding:8px;background:transparent;color:inherit;font-size:24px}
+.controls{display:flex;gap:8px}
+.controls button{width:auto;flex:1}
+.controls button.stop{flex:0 0 auto}
 label{display:block;margin:14px 0 6px;font-weight:600}
 textarea,select,button,input[type=password],input[type=text]{width:100%;font-size:16px;padding:12px;border:1px solid #ccc;border-radius:12px;box-sizing:border-box}
 textarea{min-height:180px}
@@ -21,38 +27,10 @@ audio{width:100%;margin-top:8px}
 </head>
 <body>
 <main>
+<header>
 <h1>🔊 Nghe văn bản</h1>
-<label for="textInput">Văn bản</label>
-<textarea id="textInput" placeholder="Nhập hoặc dán văn bản..."></textarea>
-<button id="selectAll" class="secondary" type="button">Chọn toàn bộ văn bản</button>
-<label for="fileInput">Tải file lên</label>
-<input type="file" id="fileInput" accept=".txt,text/plain,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
-<label for="voice">Giọng đọc trên thiết bị</label>
-<select id="voice"></select>
-<label for="rate">Tốc độ: <span id="rv">1.0</span>x</label>
-<input type="range" id="rate" min="0.5" max="2" step="0.1" value="1">
-<button id="speak">▶ Đọc ngay</button>
-<button id="stop" class="stop">■ Dừng</button>
-<h2>Giọng đọc Cloud (edge-tts)</h2>
-<label for="cloudVoice">Giọng đọc Cloud</label>
-<select id="cloudVoice">
-  <option value="vi-VN-HoaiMyNeural">Hoài Mỹ - Nữ Tiếng Việt</option>
-  <option value="vi-VN-NamMinhNeural">Nam Minh - Nam Tiếng Việt</option>
-  <option value="en-US-AriaNeural">Aria - Nữ Tiếng Anh</option>
-  <option value="en-US-GuyNeural">Guy - Nam Tiếng Anh</option>
-  <option value="zh-CN-XiaoxiaoNeural">Xiaoxiao - Nữ Tiếng Trung</option>
-  <option value="ja-JP-NanamiNeural">Nanami - Nữ Tiếng Nhật</option>
-  <option value="ko-KR-SunHiNeural">SunHi - Nữ Tiếng Hàn</option>
-</select>
-<label for="cloudRate">Tốc độ Cloud</label>
-<select id="cloudRate">
-  <option value="-20%">Chậm hơn 20%</option>
-  <option value="-10%">Chậm hơn 10%</option>
-  <option value="+0%" selected>Bình thường</option>
-  <option value="+10%">Nhanh hơn 10%</option>
-  <option value="+20%">Nhanh hơn 20%</option>
-</select>
-<button id="toggleToken" class="secondary" type="button" aria-expanded="false" aria-controls="tokenSettings">Hiện cài đặt token</button>
+<button id="toggleToken" class="settings" type="button" aria-label="Cài đặt token GitHub" title="Cài đặt token GitHub" aria-expanded="false" aria-controls="tokenSettings">⚙️</button>
+</header>
 <div id="tokenSettings" hidden>
   <label for="token">GitHub Personal Access Token (PAT)</label>
   <input id="token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false">
@@ -60,8 +38,32 @@ audio{width:100%;margin-top:8px}
   <button id="saveToken" class="secondary" type="button">Lưu token</button>
   <button id="clearToken" class="secondary" type="button">Xóa token</button>
 </div>
-<button id="createCloud" type="button">Tạo giọng đọc Cloud (MP3)</button>
+<label for="textInput">Văn bản</label>
+<textarea id="textInput" placeholder="Nhập hoặc dán văn bản..."></textarea>
+<label for="voice">Giọng đọc</label>
+<select id="voice">
+ <optgroup label="Giọng Cloud chất lượng cao (Tạo MP3)">
+  <option value="vi-VN-HoaiMyNeural">Hoài Mỹ - Nữ Tiếng Việt</option>
+  <option value="vi-VN-NamMinhNeural">Nam Minh - Nam Tiếng Việt</option>
+  <option value="en-US-AriaNeural">Aria - Nữ Tiếng Anh</option>
+  <option value="en-US-GuyNeural">Guy - Nam Tiếng Anh</option>
+  <option value="zh-CN-XiaoxiaoNeural">Xiaoxiao - Nữ Tiếng Trung</option>
+  <option value="ja-JP-NanamiNeural">Nanami - Nữ Tiếng Nhật</option>
+  <option value="ko-KR-SunHiNeural">SunHi - Nữ Tiếng Hàn</option>
+ </optgroup>
+ <optgroup id="deviceVoices" label="Giọng đọc nhanh trên máy (Nghe liền)"></optgroup>
+</select>
+<label for="rate">Tốc độ: <span id="rv">1.0</span>x</label>
+<input type="range" id="rate" min="0.5" max="2" step="0.1" value="1">
+<div class="controls">
+  <button id="speak" type="button">▶ Đọc ngay</button>
+  <button id="createCloud" type="button">Tạo MP3</button>
+  <button id="stop" class="stop" type="button">■ Dừng</button>
+</div>
 <p id="cloudStatus" role="status" aria-live="polite"></p>
+<button id="selectAll" class="secondary" type="button">Chọn toàn bộ văn bản</button>
+<label for="fileInput">Tải file lên</label>
+<input type="file" id="fileInput" accept=".txt,text/plain,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
 <h2>File MP3 mới nhất</h2>
 <audio id="player" controls preload="none"></audio>
 <p id="note"></p>
@@ -70,7 +72,6 @@ audio{width:100%;margin-top:8px}
 const $=id=>document.getElementById(id);
 const synth=window.speechSynthesis;
 let voices=[];
-let voiceChosen=false;
 $('selectAll').onclick=()=>{$('textInput').focus();$('textInput').select();};
 $('fileInput').onchange=event=>{
   const input=event.target;
@@ -91,7 +92,8 @@ $('fileInput').onchange=event=>{
 };
 function loadVoices(){
   if(!synth)return;
-  const previous=voiceChosen?voices[Number($('voice').value)]:null;
+  const selectedValue=$('voice').value;
+  const previous=selectedValue.startsWith('device:')?voices[Number(selectedValue.slice(7))]:null;
   const ios=/iPad|iPhone|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
   let linhCount=0;
   voices=synth.getVoices().map(voice=>{
@@ -100,33 +102,37 @@ function loadVoices(){
     if(linh)linhCount++;
     const enhanced=/enhanced|premium/i.test(voice.name+' '+voice.voiceURI)||(ios&&linh&&linhCount===2);
     return {voice,vietnamese,linh,enhanced};
-  }).sort((a,b)=>Number(b.vietnamese)-Number(a.vietnamese)||a.voice.name.localeCompare(b.voice.name));
-  $('voice').innerHTML='';
+  }).sort((a,b)=>Number(b.linh&&b.enhanced)-Number(a.linh&&a.enhanced)||Number(b.vietnamese)-Number(a.vietnamese)||a.voice.name.localeCompare(b.voice.name));
+  $('deviceVoices').replaceChildren();
   voices.forEach((entry,index)=>{
     const o=document.createElement('option');
-    o.value=index;
+    o.value='device:'+index;
     o.textContent=(entry.enhanced?(entry.linh?'Linh':entry.voice.name)+' (Nâng cao)':entry.voice.name)+' ('+entry.voice.lang+')';
-    $('voice').appendChild(o);
+    $('deviceVoices').appendChild(o);
   });
-  let selected=previous?voices.findIndex(entry=>entry.voice.name===previous.voice.name&&entry.voice.voiceURI===previous.voice.voiceURI&&entry.voice.lang===previous.voice.lang):-1;
-  if(selected<0){
-    selected=voices.findIndex(entry=>entry.linh&&entry.enhanced);
-    if(selected<0)selected=voices.findIndex(entry=>entry.vietnamese&&/natural|hoaimy/i.test(entry.voice.name+' '+entry.voice.voiceURI));
-    if(selected<0)selected=voices.findIndex(entry=>entry.vietnamese&&/google/i.test(entry.voice.name+' '+entry.voice.voiceURI));
-    if(selected<0)selected=voices.findIndex(entry=>entry.vietnamese);
+  if(previous){
+    const selected=voices.findIndex(entry=>entry.voice.name===previous.voice.name&&entry.voice.voiceURI===previous.voice.voiceURI&&entry.voice.lang===previous.voice.lang);
+    $('voice').value=selected>=0?'device:'+selected:'vi-VN-HoaiMyNeural';
+  }else if(!selectedValue.startsWith('device:')){
+    $('voice').value=selectedValue;
   }
-  if(selected>=0)$('voice').value=String(selected);
+}
+function bestDeviceVoice(){
+  return voices.find(entry=>entry.linh&&entry.enhanced)
+    ||voices.find(entry=>entry.vietnamese&&/natural|hoaimy/i.test(entry.voice.name+' '+entry.voice.voiceURI))
+    ||voices.find(entry=>entry.vietnamese&&/google/i.test(entry.voice.name+' '+entry.voice.voiceURI))
+    ||voices.find(entry=>entry.vietnamese);
 }
 loadVoices();
 if(synth)synth.onvoiceschanged=loadVoices;
-$('voice').onchange=()=>{voiceChosen=true;};
-$('rate').oninput=()=>$('rv').textContent=$('rate').value;
+$('rate').oninput=()=>$('rv').textContent=Number($('rate').value).toFixed(1);
 $('speak').onclick=()=>{
   if(!synth){alert('Trình duyệt không hỗ trợ Web Speech API');return;}
   const t=$('textInput').value.trim();if(!t)return;
   synth.cancel();
   const u=new SpeechSynthesisUtterance(t);
-  const v=voices[Number($('voice').value)]?.voice;
+  const selected=$('voice').value;
+  const v=(selected.startsWith('device:')?voices[Number(selected.slice(7))]:bestDeviceVoice())?.voice;
   if(v){u.voice=v;u.lang=v.lang;}else u.lang='vi-VN';
   u.rate=parseFloat($('rate').value);
   synth.speak(u);
@@ -141,7 +147,6 @@ $('toggleToken').onclick=()=>{
   const settings=$('tokenSettings');
   settings.hidden=!settings.hidden;
   $('toggleToken').setAttribute('aria-expanded',String(!settings.hidden));
-  $('toggleToken').textContent=(settings.hidden?'Hiện':'Ẩn')+' cài đặt token';
 };
 try{$('token').value=localStorage.getItem(tokenKey)||'';}catch(error){$('cloudStatus').textContent='Không thể truy cập bộ nhớ trình duyệt.';}
 $('saveToken').onclick=()=>{
@@ -163,13 +168,17 @@ $('createCloud').onclick=async()=>{
   if(!token){$('cloudStatus').textContent='Hãy nhập GitHub token trong phần cài đặt.';return;}
   if(!window.crypto?.getRandomValues){$('cloudStatus').textContent='Trình duyệt không hỗ trợ tạo mã yêu cầu an toàn.';return;}
   const requestId=Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,'0')).join('');
+  const selected=$('voice').value;
+  const voice=selected.startsWith('device:')?'vi-VN-HoaiMyNeural':selected;
+  const ratePercent=Math.round((Number($('rate').value)-1)*100);
+  const rate=(ratePercent>=0?'+':'')+ratePercent+'%';
   const headers={Authorization:'Bearer '+token,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'};
   $('createCloud').disabled=true;
   $('cloudStatus').textContent='Đang gửi yêu cầu...';
   try{
     const response=await fetch(api+'/actions/workflows/tts.yml/dispatches',{
       method:'POST',headers:{...headers,'Content-Type':'application/json'},
-      body:JSON.stringify({ref:'main',inputs:{text,voice:$('cloudVoice').value,rate:$('cloudRate').value,request_id:requestId}})
+      body:JSON.stringify({ref:'main',inputs:{text,voice,rate,request_id:requestId}})
     });
     if(!response.ok)throw new Error('Không gửi được yêu cầu (HTTP '+response.status+'). Kiểm tra token, quyền Actions và nội dung.');
     $('cloudStatus').textContent='GitHub đang tạo file MP3...';

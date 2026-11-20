@@ -21,16 +21,10 @@ on:
           - ja-JP-NanamiNeural
           - ko-KR-SunHiNeural
       rate:
-        description: "Chọn tốc độ đọc"
+        description: "Tốc độ đọc (ví dụ: -50%, +0%, +100%)"
         required: true
-        type: choice
+        type: string
         default: "+0%"
-        options:
-          - "-20%"
-          - "-10%"
-          - "+0%"
-          - "+10%"
-          - "+20%"
       request_id:
         description: "Mã yêu cầu từ giao diện web (không bắt buộc)"
         required: false
