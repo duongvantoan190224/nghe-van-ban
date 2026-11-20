@@ -8,11 +8,11 @@
 <style>
 body{font-family:-apple-system,system-ui,sans-serif;margin:0;padding:16px;padding-bottom:env(safe-area-inset-bottom);background:#f2f2f7;color:#111}
 main{max-width:600px;margin:auto}
-header h1{margin:0.67em 0}
+header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+header h1{margin:0.67em 0;min-width:0}
 .controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .controls .stop{grid-column:1/-1}
-.controls small{display:block;margin-top:6px;color:#555}
-button.settings{width:auto}
+button.settings{width:auto;margin:0;padding:8px;background:transparent;font-size:24px}
 label{display:block;margin:14px 0 6px;font-weight:600}
 textarea,select,button,input[type=password],input[type=text]{width:100%;font-size:16px;padding:12px;border:1px solid #ccc;border-radius:12px;box-sizing:border-box}
 textarea{min-height:180px}
@@ -28,6 +28,7 @@ audio{width:100%;margin-top:8px}
 <main>
 <header>
 <h1>🔊 Nghe văn bản</h1>
+<button id="toggleToken" class="settings" type="button" aria-label="Cài đặt Token" aria-expanded="false" aria-controls="tokenSettings">⚙️</button>
 </header>
 <label for="textInput">Văn bản</label>
 <textarea id="textInput" placeholder="Nhập hoặc dán văn bản..."></textarea>
@@ -47,18 +48,11 @@ audio{width:100%;margin-top:8px}
 <label for="rate">Tốc độ: <span id="rv">1.0</span>x</label>
 <input type="range" id="rate" min="0.5" max="2" step="0.1" value="1">
 <div class="controls">
-  <div>
-    <button id="speak" type="button">Đọc ngay (Máy)</button>
-    <small>Nghe tức thì trên thiết bị (nhanh, dùng giọng máy)</small>
-  </div>
-  <div>
-    <button id="createCloud" type="button">Tạo MP3 (Cloud)</button>
-    <small>Tạo giọng Hoài Mỹ / Nam Minh qua GitHub Actions (~25 giây)</small>
-  </div>
+  <button id="speak" type="button">Đọc ngay (Máy)</button>
+  <button id="createCloud" type="button">Tạo MP3 (Cloud)</button>
   <button id="stop" class="stop" type="button">Dừng</button>
 </div>
 <p id="cloudStatus" role="status" aria-live="polite"></p>
-<button id="toggleToken" class="secondary settings" type="button" aria-expanded="false" aria-controls="tokenSettings">Cài đặt Token</button>
 <div id="tokenSettings" hidden>
   <label for="token">GitHub Personal Access Token (PAT)</label>
   <input id="token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false">
