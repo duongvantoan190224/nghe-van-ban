@@ -37,6 +37,8 @@ audio{width:100%;margin-top:8px}
 <script>
 const $=id=>document.getElementById(id);
 const synth=window.speechSynthesis;
+let voices=[];
+let voiceChosen=false;
 $('fileInput').onchange=event=>{
   const input=event.target;
   const file=input.files[0];
@@ -56,19 +58,42 @@ $('fileInput').onchange=event=>{
 };
 function loadVoices(){
   if(!synth)return;
-  const v=synth.getVoices().slice().sort((a,b)=>(b.lang.startsWith('vi'))-(a.lang.startsWith('vi'))||a.name.localeCompare(b.name));
+  const previous=voiceChosen?voices[Number($('voice').value)]:null;
+  const ios=/iPad|iPhone|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  let linhCount=0;
+  voices=synth.getVoices().map(voice=>{
+    const vietnamese=/^vi/i.test(voice.lang);
+    const linh=vietnamese&&/^linh\b/i.test(voice.name);
+    if(linh)linhCount++;
+    const enhanced=/enhanced|premium/i.test(voice.name+' '+voice.voiceURI)||(ios&&linh&&linhCount===2);
+    return {voice,vietnamese,linh,enhanced};
+  }).sort((a,b)=>Number(b.vietnamese)-Number(a.vietnamese)||a.voice.name.localeCompare(b.voice.name));
   $('voice').innerHTML='';
-  v.forEach(x=>{const o=document.createElement('option');o.value=x.name;o.textContent=x.name+' ('+x.lang+')';$('voice').appendChild(o);});
+  voices.forEach((entry,index)=>{
+    const o=document.createElement('option');
+    o.value=index;
+    o.textContent=(entry.enhanced?(entry.linh?'Linh':entry.voice.name)+' (Nâng cao)':entry.voice.name)+' ('+entry.voice.lang+')';
+    $('voice').appendChild(o);
+  });
+  let selected=previous?voices.findIndex(entry=>entry.voice.name===previous.voice.name&&entry.voice.voiceURI===previous.voice.voiceURI&&entry.voice.lang===previous.voice.lang):-1;
+  if(selected<0){
+    selected=voices.findIndex(entry=>entry.vietnamese&&/natural|hoaimy/i.test(entry.voice.name+' '+entry.voice.voiceURI));
+    if(selected<0)selected=voices.findIndex(entry=>entry.vietnamese&&/google/i.test(entry.voice.name+' '+entry.voice.voiceURI));
+    if(selected<0)selected=voices.findIndex(entry=>entry.linh&&entry.enhanced);
+    if(selected<0)selected=voices.findIndex(entry=>entry.vietnamese);
+  }
+  if(selected>=0)$('voice').value=String(selected);
 }
 loadVoices();
 if(synth)synth.onvoiceschanged=loadVoices;
+$('voice').onchange=()=>{voiceChosen=true;};
 $('rate').oninput=()=>$('rv').textContent=$('rate').value;
 $('speak').onclick=()=>{
   if(!synth){alert('Trình duyệt không hỗ trợ Web Speech API');return;}
   const t=$('textInput').value.trim();if(!t)return;
   synth.cancel();
   const u=new SpeechSynthesisUtterance(t);
-  const v=synth.getVoices().find(x=>x.name===$('voice').value);
+  const v=voices[Number($('voice').value)]?.voice;
   if(v){u.voice=v;u.lang=v.lang;}else u.lang='vi-VN';
   u.rate=parseFloat($('rate').value);
   synth.speak(u);
