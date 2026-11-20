@@ -144,7 +144,7 @@ $('fileInput').onchange=event=>{
       $('createCloud').disabled=false;
     }
   };
-  if(isDocx||isPdf)reader.readAsArrayBuffer(file);else reader.readAsText(file);
+  if(isDoc||isDocx||isPdf)reader.readAsArrayBuffer(file);else reader.readAsText(file);
 };
 function loadVoices(){
   if(!synth)return;
