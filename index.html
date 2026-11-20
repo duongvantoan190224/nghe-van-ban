@@ -23,6 +23,11 @@ button.stop{background:#ff3b30}
 button.secondary{background:#555}
 button:disabled{opacity:.6}
 audio{width:100%;margin-top:8px}
+.playlist{list-style:none;padding:0;margin:8px 0}
+.playlist li{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #ddd}
+.playlist .track{flex:1;min-width:0;overflow-wrap:anywhere}
+.playlist button{width:auto;margin:0;padding:8px 12px}
+.playlist .delete{background:#ff3b30}
 </style>
 </head>
 <body>
@@ -65,9 +70,11 @@ audio{width:100%;margin-top:8px}
 </div>
 <p id="cloudStatus" role="status" aria-live="polite"></p>
 <button id="selectAll" class="secondary" type="button">Chọn toàn bộ văn bản</button>
-<h2>File MP3 mới nhất</h2>
+<h2>Danh sách phát MP3</h2>
 <audio id="player" controls preload="none" hidden></audio>
 <p id="note">Chưa có file MP3. Nhập GitHub token và bấm 'Tạo file MP3 (Cloud)' để tạo.</p>
+<p id="playlistStatus" role="status" aria-live="polite"></p>
+<ol id="playlist" class="playlist" aria-label="Danh sách file MP3"></ol>
 </main>
 <script type="module">
 const $=id=>document.getElementById(id);
@@ -230,23 +237,108 @@ $('stop').onclick=()=>{
 const api='https://api.github.com/repos/duongvantoan190224/nghe-van-ban';
 const tokenKey='nghe-van-ban-github-token';
 let audioUrl=null;
+let currentAudioPath=null;
 const missingAudioMessage="Chưa có file MP3. Nhập GitHub token và bấm 'Tạo file MP3 (Cloud)' để tạo.";
 $('player').onerror=()=>{
   $('player').hidden=true;
   $('player').removeAttribute('src');
+  currentAudioPath=null;
   $('note').textContent=missingAudioMessage;
 };
-async function loadLatestAudio(){
-  const url='audio/doc-van-ban.mp3?t='+Date.now();
+async function playTrack(file,ref='main'){
   try{
-    const response=await fetch(url,{cache:'no-store'});
-    if(!response.ok||audioUrl)return;
-    $('player').src=url;
+    const headers={Accept:'application/vnd.github.raw+json'};
+    const token=$('token').value.trim();
+    if(token)headers.Authorization='Bearer '+token;
+    const path=file.path.split('/').map(encodeURIComponent).join('/');
+    const response=await fetch(api+'/contents/'+path+'?ref='+encodeURIComponent(ref)+'&t='+Date.now(),{headers,cache:'no-store'});
+    if(!response.ok)throw new Error('Không thể tải MP3 (HTTP '+response.status+').');
+    const blob=await response.blob();
+    if(!blob.size)throw new Error('File MP3 đang rỗng.');
+    const oldUrl=audioUrl;
+    audioUrl=URL.createObjectURL(new Blob([blob],{type:'audio/mpeg'}));
+    currentAudioPath=file.path;
+    $('player').src=audioUrl;
     $('player').hidden=false;
-    $('note').textContent='Nhấn phát để nghe MP3 mới nhất.';
-  }catch(error){/* Giữ thông báo khi file chưa có hoặc mạng không khả dụng. */}
+    $('player').load();
+    if(oldUrl)URL.revokeObjectURL(oldUrl);
+    $('note').textContent='Đang phát: '+file.name;
+  }catch(error){
+    $('playlistStatus').textContent=error.message||'Không thể tải file MP3.';
+  }
 }
-loadLatestAudio();
+async function loadPlaylist(){
+  const playlist=$('playlist');
+  playlist.replaceChildren();
+  $('playlistStatus').textContent='Đang tải danh sách MP3...';
+  try{
+    const headers={Accept:'application/vnd.github+json'};
+    const token=$('token').value.trim();
+    if(token)headers.Authorization='Bearer '+token;
+    const response=await fetch(api+'/contents/audio?ref=main&t='+Date.now(),{headers,cache:'no-store'});
+    if(response.status===404){
+      $('playlistStatus').textContent='Chưa có file MP3.';
+      return;
+    }
+    if(!response.ok)throw new Error('Không thể tải danh sách MP3 (HTTP '+response.status+').');
+    const files=await response.json();
+    const tracks=files.filter(file=>file.type==='file'&&/\.mp3$/i.test(file.name)).sort((a,b)=>b.name.localeCompare(a.name));
+    if(!tracks.length){
+      $('playlistStatus').textContent='Chưa có file MP3.';
+      return;
+    }
+    tracks.forEach(file=>{
+      const item=document.createElement('li');
+      const name=document.createElement('span');
+      name.className='track';
+      name.textContent=file.name;
+      const play=document.createElement('button');
+      play.type='button';
+      play.textContent='Phát';
+      play.onclick=()=>playTrack(file);
+      const remove=document.createElement('button');
+      remove.type='button';
+      remove.className='delete';
+      remove.textContent='Xóa';
+      remove.setAttribute('aria-label','Xóa '+file.name);
+      remove.onclick=async()=>{
+        if(!window.confirm('Xóa file '+file.name+' khỏi danh sách hiện tại? File có thể vẫn còn trong lịch sử Git.'))return;
+        const token=$('token').value.trim();
+        if(!token){$('playlistStatus').textContent='Hãy nhập GitHub token có quyền Contents: Read and write để xóa MP3.';return;}
+        remove.disabled=true;
+        try{
+          const path=file.path.split('/').map(encodeURIComponent).join('/');
+          const response=await fetch(api+'/contents/'+path,{
+            method:'DELETE',
+            headers:{Authorization:'Bearer '+token,Accept:'application/vnd.github+json','Content-Type':'application/json','X-GitHub-Api-Version':'2022-11-28'},
+            body:JSON.stringify({message:'Xóa '+file.name,sha:file.sha,branch:'main'})
+          });
+          if(!response.ok)throw new Error('Không xóa được MP3 (HTTP '+response.status+'). Kiểm tra quyền Contents: Read and write.');
+          if(currentAudioPath===file.path){
+            $('player').pause();
+            $('player').removeAttribute('src');
+            $('player').hidden=true;
+            if(audioUrl)URL.revokeObjectURL(audioUrl);
+            audioUrl=null;
+            currentAudioPath=null;
+            $('note').textContent=missingAudioMessage;
+          }
+          await loadPlaylist();
+          $('playlistStatus').textContent='Đã xóa '+file.name+'.';
+        }catch(error){
+          remove.disabled=false;
+          $('playlistStatus').textContent=error.message||'Không thể xóa file MP3.';
+        }
+      };
+      item.append(name,play,remove);
+      playlist.appendChild(item);
+    });
+    $('playlistStatus').textContent=tracks.length+' file MP3.';
+  }catch(error){
+    $('playlistStatus').textContent=error.message||'Không thể tải danh sách MP3.';
+  }
+}
+loadPlaylist();
 $('toggleToken').onclick=()=>{
   const settings=$('tokenSettings');
   settings.hidden=!settings.hidden;
@@ -272,10 +364,11 @@ $('saveToken').onclick=()=>{
     localStorage.setItem(tokenKey,token);
     updateTokenStatus(true);
     $('cloudStatus').textContent='Đã lưu token thành công. '+savedTokenMessage;
+    loadPlaylist();
   }catch(error){$('cloudStatus').textContent='Không thể lưu token trên thiết bị.';}
 };
 $('clearToken').onclick=()=>{
-  try{localStorage.removeItem(tokenKey);$('token').value='';updateTokenStatus(false);$('cloudStatus').textContent='Đã xóa token.';}
+  try{localStorage.removeItem(tokenKey);$('token').value='';updateTokenStatus(false);$('cloudStatus').textContent='Đã xóa token.';loadPlaylist();}
   catch(error){$('cloudStatus').textContent='Không thể xóa token trên thiết bị.';}
 };
 $('createCloud').onclick=async()=>{
@@ -314,19 +407,9 @@ $('createCloud').onclick=async()=>{
         if(!metaResponse.ok)continue;
         const meta=await metaResponse.json();
         if(meta.request_id!==requestId)continue;
-        const audioResponse=await fetch(api+'/contents/audio/doc-van-ban.mp3?ref='+ref+'&t='+Date.now(),{
-          headers:{...headers,Accept:'application/vnd.github.raw+json'},cache:'no-store'
-        });
-        if(!audioResponse.ok)continue;
-        const blob=await audioResponse.blob();
-        if(!blob.size)continue;
-        const oldUrl=audioUrl;
-        audioUrl=URL.createObjectURL(new Blob([blob],{type:'audio/mpeg'}));
-        $('player').src=audioUrl;
-        $('player').hidden=false;
-        $('player').load();
-        if(oldUrl)URL.revokeObjectURL(oldUrl);
-        $('note').textContent='Nhấn phát để nghe MP3 mới nhất.';
+        const filename=typeof meta.filename==='string'&&/^[a-zA-Z0-9._-]+\.mp3$/.test(meta.filename)?meta.filename:'doc-van-ban.mp3';
+        await playTrack({path:'audio/'+filename,name:filename},commit.sha);
+        await loadPlaylist();
         $('cloudStatus').textContent='Đã xong!';
         completed=true;
         break;
