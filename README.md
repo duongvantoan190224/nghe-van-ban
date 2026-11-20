@@ -5,7 +5,7 @@ Công cụ chuyển văn bản thành giọng nói, tạo tệp MP3 có thể ng
 ## Sử dụng trên GitHub Pages
 
 1. Mở trang GitHub Pages của repository trên Safari.
-2. Nhập văn bản hoặc chọn tệp `.txt`/`.docx`/`.pdf`, rồi chọn giọng và tốc độ. PDF cần có lớp văn bản; PDF chỉ chứa ảnh quét không được OCR. **Đọc ngay (Máy)** dùng giọng đã chọn trên thiết bị; nếu chọn giọng Cloud, trang tự chọn giọng phù hợp trên thiết bị. Nút **Chọn toàn bộ văn bản** chọn nội dung trong ô.
+2. Nhập văn bản hoặc chọn tệp `.txt`/`.doc`/`.docx`/`.pdf`, rồi chọn giọng và tốc độ. `.doc` hỗ trợ định dạng Word 97–2003 không bị mã hóa; nếu không đọc được, hãy lưu tệp thành `.docx`. PDF cần có lớp văn bản; PDF chỉ chứa ảnh quét không được OCR. **Đọc ngay (Máy)** dùng giọng đã chọn trên thiết bị; nếu chọn giọng Cloud, trang tự chọn giọng phù hợp trên thiết bị. Nút **Chọn toàn bộ văn bản** chọn nội dung trong ô.
 3. Để tạo MP3, nhấn biểu tượng **⚙️** cạnh tiêu đề để mở cài đặt Token, nhập và lưu GitHub Personal Access Token (PAT). Với fine-grained PAT, cấp quyền truy cập repository này và quyền **Actions: Read and write** (Contents: Read). Token classic cần quyền `repo`.
 4. Nhấn **Tạo MP3 (Cloud)** và chờ **Đã xong!**, sau đó nhấn phát trên trình phát. Nếu chưa có MP3, trình phát được ẩn cho đến khi có file. Nếu chọn giọng trên thiết bị, MP3 sử dụng giọng Hoài Mỹ. Safari có thể yêu cầu thao tác nhấn phát của người dùng.
 

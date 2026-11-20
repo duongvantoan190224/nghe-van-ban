@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Nghe văn bản</title>
 <script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/Alpaq92/JSDoc@821695a884e0c0bb8592a635d9524bb3e116cd67/src/docToText.js"></script>
 <style>
 body{font-family:-apple-system,system-ui,sans-serif;margin:0;padding:16px;padding-bottom:env(safe-area-inset-bottom);background:#f2f2f7;color:#111}
 main{max-width:600px;margin:auto}
@@ -41,7 +42,7 @@ audio{width:100%;margin-top:8px}
 <label for="textInput">Văn bản</label>
 <textarea id="textInput" placeholder="Nhập hoặc dán văn bản..."></textarea>
 <label for="fileInput">Tải file lên</label>
-<input type="file" id="fileInput" accept=".txt,text/plain,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,application/pdf">
+<input type="file" id="fileInput" accept=".txt,text/plain,.doc,application/msword,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,application/pdf">
 <label for="voice">Giọng đọc</label>
 <select id="voice">
  <optgroup label="Giọng Cloud chất lượng cao (Tạo MP3)">
@@ -78,6 +79,7 @@ $('fileInput').onchange=event=>{
   const input=event.target;
   const file=input.files[0];
   if(!file)return;
+  const isDoc=/\.doc$/i.test(file.name);
   const isDocx=/\.docx$/i.test(file.name);
   const isPdf=/\.pdf$/i.test(file.name)||file.type==='application/pdf';
   $('speak').disabled=true;
@@ -87,7 +89,8 @@ $('fileInput').onchange=event=>{
   reader.onload=async()=>{
     try{
       let text;
-      if(isDocx)text=(await mammoth.extractRawText({arrayBuffer:reader.result})).value;
+      if(isDoc)text=window.docToText(reader.result);
+      else if(isDocx)text=(await mammoth.extractRawText({arrayBuffer:reader.result})).value;
       else if(isPdf){
         const pdfjsLib=await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.2.67/build/pdf.min.mjs');
         pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@4.2.67/build/pdf.worker.min.mjs';
@@ -105,6 +108,11 @@ $('fileInput').onchange=event=>{
         }
       }else text=reader.result;
       if(input.files[0]!==file)return;
+      if(isDoc&&text===null){
+        $('textInput').value='';
+        $('cloudStatus').textContent='Không thể đọc file .doc này. Chỉ hỗ trợ Word 97–2003 không bị mã hóa; hãy thử lưu thành .docx.';
+        return;
+      }
       if(!text.trim()){
         $('textInput').value='';
         $('cloudStatus').textContent=isPdf
@@ -117,7 +125,9 @@ $('fileInput').onchange=event=>{
     }catch(error){
       if(input.files[0]===file)$('cloudStatus').textContent=isPdf
         ?'Không thể đọc PDF. Hãy kiểm tra file hoặc thử PDF có thể chọn/sao chép chữ.'
-        :'Không thể đọc file.';
+        :isDoc
+          ?'Không thể đọc file .doc. Hãy kiểm tra file hoặc thử lưu thành .docx.'
+          :'Không thể đọc file.';
     }finally{
       if(input.files[0]===file){
         $('speak').disabled=false;
@@ -127,7 +137,9 @@ $('fileInput').onchange=event=>{
   };
   reader.onerror=()=>{
     if(input.files[0]===file){
-      $('cloudStatus').textContent='Không thể đọc file.';
+      $('cloudStatus').textContent=isDoc
+        ?'Không thể đọc file .doc. Hãy kiểm tra file hoặc thử lưu thành .docx.'
+        :'Không thể đọc file.';
       $('speak').disabled=false;
       $('createCloud').disabled=false;
     }
