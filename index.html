@@ -32,6 +32,8 @@ audio{width:100%;margin-top:8px}
 </header>
 <label for="textInput">Văn bản</label>
 <textarea id="textInput" placeholder="Nhập hoặc dán văn bản..."></textarea>
+<label for="fileInput">Tải file lên</label>
+<input type="file" id="fileInput" accept=".txt,text/plain,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,application/pdf">
 <label for="voice">Giọng đọc</label>
 <select id="voice">
  <optgroup label="Giọng Cloud chất lượng cao (Tạo MP3)">
@@ -61,8 +63,6 @@ audio{width:100%;margin-top:8px}
   <button id="clearToken" class="secondary" type="button">Xóa token</button>
 </div>
 <button id="selectAll" class="secondary" type="button">Chọn toàn bộ văn bản</button>
-<label for="fileInput">Tải file lên</label>
-<input type="file" id="fileInput" accept=".txt,text/plain,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,application/pdf">
 <h2>File MP3 mới nhất</h2>
 <audio id="player" controls preload="none" hidden></audio>
 <p id="note">Chưa có file MP3. Nhập GitHub token và bấm 'Tạo file MP3 (Cloud)' để tạo.</p>
