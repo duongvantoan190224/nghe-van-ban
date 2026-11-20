@@ -263,8 +263,10 @@ async function playTrack(file,ref='main'){
     $('player').load();
     if(oldUrl)URL.revokeObjectURL(oldUrl);
     $('note').textContent='Đang phát: '+file.name;
+    return true;
   }catch(error){
     $('playlistStatus').textContent=error.message||'Không thể tải file MP3.';
+    return false;
   }
 }
 async function loadPlaylist(){
@@ -338,7 +340,6 @@ async function loadPlaylist(){
     $('playlistStatus').textContent=error.message||'Không thể tải danh sách MP3.';
   }
 }
-loadPlaylist();
 $('toggleToken').onclick=()=>{
   const settings=$('tokenSettings');
   settings.hidden=!settings.hidden;
@@ -357,6 +358,7 @@ try{
   $('tokenStatus').textContent='Không thể truy cập bộ nhớ trình duyệt.';
   $('cloudStatus').textContent='Không thể truy cập bộ nhớ trình duyệt.';
 }
+loadPlaylist();
 $('saveToken').onclick=()=>{
   try{
     const token=$('token').value.trim();
@@ -408,7 +410,7 @@ $('createCloud').onclick=async()=>{
         const meta=await metaResponse.json();
         if(meta.request_id!==requestId)continue;
         const filename=typeof meta.filename==='string'&&/^[a-zA-Z0-9._-]+\.mp3$/.test(meta.filename)?meta.filename:'doc-van-ban.mp3';
-        await playTrack({path:'audio/'+filename,name:filename},commit.sha);
+        if(!await playTrack({path:'audio/'+filename,name:filename},commit.sha))continue;
         await loadPlaylist();
         $('cloudStatus').textContent='Đã xong!';
         completed=true;
