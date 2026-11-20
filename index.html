@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Nghe văn bản</title>
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
 <style>
 body{font-family:-apple-system,system-ui,sans-serif;margin:0;padding:16px;padding-bottom:env(safe-area-inset-bottom);background:#f2f2f7;color:#111}
 main{max-width:600px;margin:auto}
@@ -19,8 +20,10 @@ audio{width:100%;margin-top:8px}
 <body>
 <main>
 <h1>🔊 Nghe văn bản</h1>
-<label for="text">Văn bản</label>
-<textarea id="text" placeholder="Nhập hoặc dán văn bản..."></textarea>
+<label for="textInput">Văn bản</label>
+<textarea id="textInput" placeholder="Nhập hoặc dán văn bản..."></textarea>
+<label for="fileInput">Tải file lên</label>
+<input type="file" id="fileInput" accept=".txt,text/plain,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
 <label for="voice">Giọng đọc</label>
 <select id="voice"></select>
 <label for="rate">Tốc độ: <span id="rv">1.0</span>x</label>
@@ -34,6 +37,23 @@ audio{width:100%;margin-top:8px}
 <script>
 const $=id=>document.getElementById(id);
 const synth=window.speechSynthesis;
+$('fileInput').onchange=event=>{
+  const input=event.target;
+  const file=input.files[0];
+  if(!file)return;
+  const isDocx=/\.docx$/i.test(file.name);
+  const reader=new FileReader();
+  reader.onload=async()=>{
+    try{
+      const text=isDocx?(await mammoth.extractRawText({arrayBuffer:reader.result})).value:reader.result;
+      if(input.files[0]===file)$('textInput').value=text;
+    }catch(error){
+      if(input.files[0]===file)alert('Không thể đọc file.');
+    }
+  };
+  reader.onerror=()=>{if(input.files[0]===file)alert('Không thể đọc file.');};
+  if(isDocx)reader.readAsArrayBuffer(file);else reader.readAsText(file);
+};
 function loadVoices(){
   if(!synth)return;
   const v=synth.getVoices().slice().sort((a,b)=>(b.lang.startsWith('vi'))-(a.lang.startsWith('vi'))||a.name.localeCompare(b.name));
@@ -45,7 +65,7 @@ if(synth)synth.onvoiceschanged=loadVoices;
 $('rate').oninput=()=>$('rv').textContent=$('rate').value;
 $('speak').onclick=()=>{
   if(!synth){alert('Trình duyệt không hỗ trợ Web Speech API');return;}
-  const t=$('text').value.trim();if(!t)return;
+  const t=$('textInput').value.trim();if(!t)return;
   synth.cancel();
   const u=new SpeechSynthesisUtterance(t);
   const v=synth.getVoices().find(x=>x.name===$('voice').value);
