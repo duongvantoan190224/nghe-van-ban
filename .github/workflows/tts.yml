@@ -31,15 +31,19 @@ on:
           - "+20%"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   text-to-speech:
     name: Tạo tệp âm thanh MP3
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Lấy mã nguồn
         uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Cài đặt Python 3.11
         uses: actions/setup-python@v5
@@ -63,3 +67,18 @@ jobs:
           path: output/doc-van-ban.mp3
           if-no-files-found: error
           retention-days: 3
+
+      - name: Lưu MP3 vào thư mục audio trên nhánh main
+        run: |
+          mkdir -p audio
+          cp output/doc-van-ban.mp3 audio/doc-van-ban.mp3
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add audio/doc-van-ban.mp3
+          if git diff --cached --quiet; then
+            echo "Không có thay đổi để commit."
+          else
+            git commit -m "Cập nhật audio/doc-van-ban.mp3"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
