@@ -34,6 +34,7 @@ audio{width:100%;margin-top:8px}
   <label for="token">GitHub Personal Access Token (PAT)</label>
   <input id="token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false">
   <p>Token được lưu trên thiết bị này. Chỉ dùng trên thiết bị tin cậy; mã chạy trên trang có thể truy cập token. Cần quyền Actions: Read and write cho repository.</p>
+  <p id="tokenSettingsStatus"></p>
   <button id="saveToken" class="secondary" type="button">Lưu token</button>
   <button id="clearToken" class="secondary" type="button">Xóa token</button>
 </div>
@@ -61,6 +62,7 @@ audio{width:100%;margin-top:8px}
   <button id="createCloud" type="button">Tạo MP3 (Cloud)</button>
   <button id="stop" class="stop" type="button">Dừng</button>
 </div>
+<p id="tokenStatus"></p>
 <p id="cloudStatus" role="status" aria-live="polite"></p>
 <button id="selectAll" class="secondary" type="button">Chọn toàn bộ văn bản</button>
 <h2>File MP3 mới nhất</h2>
@@ -180,17 +182,27 @@ $('toggleToken').onclick=()=>{
   settings.hidden=!settings.hidden;
   $('toggleToken').setAttribute('aria-expanded',String(!settings.hidden));
 };
-try{$('token').value=localStorage.getItem(tokenKey)||'';}catch(error){$('cloudStatus').textContent='Không thể truy cập bộ nhớ trình duyệt.';}
+function updateTokenStatus(token){
+  const message=token?'✓ Token đã được lưu trên thiết bị này':'Chưa có token được lưu trên thiết bị này.';
+  $('tokenSettingsStatus').textContent=message;
+  $('tokenStatus').textContent=message;
+}
+try{
+  const token=localStorage.getItem(tokenKey)||'';
+  $('token').value=token;
+  updateTokenStatus(token.trim());
+}catch(error){$('cloudStatus').textContent='Không thể truy cập bộ nhớ trình duyệt.';}
 $('saveToken').onclick=()=>{
   try{
     const token=$('token').value.trim();
     if(!token){$('cloudStatus').textContent='Hãy nhập token trước khi lưu.';return;}
     localStorage.setItem(tokenKey,token);
-    $('cloudStatus').textContent='Đã lưu token trên thiết bị.';
+    updateTokenStatus(token);
+    $('cloudStatus').textContent='Đã lưu token thành công.';
   }catch(error){$('cloudStatus').textContent='Không thể lưu token trên thiết bị.';}
 };
 $('clearToken').onclick=()=>{
-  try{localStorage.removeItem(tokenKey);$('token').value='';$('cloudStatus').textContent='Đã xóa token.';}
+  try{localStorage.removeItem(tokenKey);$('token').value='';updateTokenStatus('');$('cloudStatus').textContent='Đã xóa token.';}
   catch(error){$('cloudStatus').textContent='Không thể xóa token trên thiết bị.';}
 };
 $('createCloud').onclick=async()=>{
