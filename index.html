@@ -149,7 +149,6 @@ $('speak').onclick=()=>{
   const t=$('textInput').value.trim();
   if(!t){$('cloudStatus').textContent='Hãy nhập văn bản trước khi đọc.';return;}
   try{
-    synth.cancel();
     const u=new SpeechSynthesisUtterance(t);
     const selected=$('voice').value;
     const v=(selected.startsWith('device:')?voices[Number(selected.slice(7))]:null)?.voice||bestDeviceVoice()?.voice;
@@ -159,6 +158,7 @@ $('speak').onclick=()=>{
     $('cloudStatus').textContent='Đang đọc trên thiết bị (giọng: '+voiceName+').';
     u.onend=()=>{$('cloudStatus').textContent='Đọc xong.';};
     u.onerror=event=>{$('cloudStatus').textContent='Không thể đọc trên thiết bị'+(event.error?' ('+event.error+')':'')+'.';};
+    synth.resume();
     synth.speak(u);
   }
   catch(error){$('cloudStatus').textContent='Không thể bắt đầu đọc trên thiết bị.';}
