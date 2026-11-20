@@ -5,13 +5,13 @@ Công cụ chuyển văn bản thành giọng nói, tạo tệp MP3 có thể ng
 ## Sử dụng trên GitHub Pages
 
 1. Mở trang GitHub Pages của repository trên Safari.
-2. Nhập văn bản hoặc chọn tệp `.txt`/`.docx`/`.pdf`, rồi chọn giọng và tốc độ. PDF cần có lớp văn bản; PDF chỉ chứa ảnh quét không được OCR. **Đọc ngay (Máy)** dùng giọng đã chọn trên thiết bị; nếu chọn giọng Cloud, trang tự chọn giọng phù hợp trên thiết bị. Nút **Chọn toàn bộ văn bản** chọn nội dung trong ô.
-3. Để tạo MP3, nhấn biểu tượng **⚙️** cạnh tiêu đề để mở cài đặt Token, nhập và lưu GitHub Personal Access Token (PAT). Với fine-grained PAT, cấp quyền truy cập repository này và quyền **Actions: Read and write** (Contents: Read). Token classic cần quyền `repo`.
-4. Nhấn **Tạo MP3 (Cloud)** và chờ **Đã xong!**, sau đó nhấn phát trên trình phát. Nếu chưa có MP3, trình phát được ẩn cho đến khi có file. Nếu chọn giọng trên thiết bị, MP3 sử dụng giọng Hoài Mỹ. Safari có thể yêu cầu thao tác nhấn phát của người dùng.
+2. Nhập văn bản hoặc chọn tệp `.txt`/`.doc`/`.docx`/`.pdf`, rồi chọn giọng và tốc độ. `.doc` hỗ trợ định dạng Word 97–2003 không bị mã hóa; nếu không đọc được, hãy lưu tệp thành `.docx`. PDF cần có lớp văn bản; PDF chỉ chứa ảnh quét không được OCR. **Đọc ngay (Máy)** dùng giọng đã chọn trên thiết bị; nếu chọn giọng Cloud, trang tự chọn giọng phù hợp trên thiết bị. Nút **Chọn toàn bộ văn bản** chọn nội dung trong ô.
+3. Để tạo MP3 hoặc xóa file, nhấn biểu tượng **⚙️** cạnh tiêu đề để mở cài đặt Token, nhập và lưu GitHub Personal Access Token (PAT). Với fine-grained PAT, cấp quyền truy cập repository này và quyền **Actions: Read and write** cùng **Contents: Read and write**. Token classic cần quyền `repo`.
+4. Nhấn **Tạo MP3 (Cloud)** và chờ **Đã xong!**. Các MP3 được lưu thành file riêng trong danh sách phát; nhấn **Phát** để nghe hoặc **Xóa** để xóa file khỏi nhánh `main`. Xóa khỏi nhánh hiện tại không xóa file khỏi lịch sử Git. Nếu chọn giọng trên thiết bị, MP3 sử dụng giọng Hoài Mỹ. Safari có thể yêu cầu thao tác nhấn phát của người dùng.
 
 Token được lưu trong `localStorage` của trình duyệt, không được mã hóa và có thể bị mã chạy trên trang truy cập. Chỉ sử dụng trên thiết bị tin cậy; có thể xóa token trong phần cài đặt. Văn bản, MP3 và đoạn trích trong `audio/meta.json` được lưu trên nhánh `main` và công khai nếu repository công khai; không gửi nội dung nhạy cảm.
 
-Trang kiểm tra kết quả qua GitHub API và tải MP3 từ cùng một commit, không phụ thuộc vào thời điểm GitHub Pages triển khai lại. Nếu quá 10 phút chưa có kết quả, kiểm tra tab **Actions**. Các yêu cầu dùng chung một tệp MP3; GitHub có thể thay thế một lần chạy đang chờ khi có yêu cầu mới.
+Trang kiểm tra kết quả qua GitHub API và tải MP3 từ cùng một commit, không phụ thuộc vào thời điểm GitHub Pages triển khai lại. Mỗi lần tạo có một file riêng; nếu quá 10 phút chưa có kết quả, kiểm tra tab **Actions**.
 
 ## Chạy workflow thủ công
 
@@ -21,4 +21,4 @@ Trang kiểm tra kết quả qua GitHub API và tải MP3 từ cùng một commi
 4. Mở lần chạy vừa hoàn tất, kéo xuống mục **Artifacts** và tải `audio-ket-qua`.
 5. Mở tệp `doc-van-ban.mp3` đã tải về để nghe trên iPhone.
 
-Workflow chạy bằng Python 3.11 và `edge-tts`. Tệp MP3 và metadata được commit vào `audio/` trên `main`; artifact `audio-ket-qua` được giữ trong 3 ngày.
+Workflow chạy bằng Python 3.11 và `edge-tts`. Các tệp MP3 riêng và metadata mới nhất được commit vào `audio/` trên `main`; artifact `audio-ket-qua` được giữ trong 3 ngày.

@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Nghe văn bản</title>
 <script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/Alpaq92/JSDoc@821695a884e0c0bb8592a635d9524bb3e116cd67/src/docToText.js"></script>
 <style>
 body{font-family:-apple-system,system-ui,sans-serif;margin:0;padding:16px;padding-bottom:env(safe-area-inset-bottom);background:#f2f2f7;color:#111}
 main{max-width:600px;margin:auto}
@@ -22,6 +23,11 @@ button.stop{background:#ff3b30}
 button.secondary{background:#555}
 button:disabled{opacity:.6}
 audio{width:100%;margin-top:8px}
+.playlist{list-style:none;padding:0;margin:8px 0}
+.playlist li{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #ddd}
+.playlist .track{flex:1;min-width:0;overflow-wrap:anywhere}
+.playlist button{width:auto;margin:0;padding:8px 12px}
+.playlist .delete{background:#ff3b30}
 </style>
 </head>
 <body>
@@ -33,15 +39,15 @@ audio{width:100%;margin-top:8px}
 <div id="tokenSettings" hidden>
   <label for="token">GitHub Personal Access Token (PAT)</label>
   <input id="token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false">
+  <p id="tokenStatus" role="status" aria-live="polite"></p>
   <p>Token được lưu trên thiết bị này. Chỉ dùng trên thiết bị tin cậy; mã chạy trên trang có thể truy cập token. Cần quyền Actions: Read and write cho repository.</p>
-  <p id="tokenSettingsStatus"></p>
   <button id="saveToken" class="secondary" type="button">Lưu token</button>
   <button id="clearToken" class="secondary" type="button">Xóa token</button>
 </div>
 <label for="textInput">Văn bản</label>
 <textarea id="textInput" placeholder="Nhập hoặc dán văn bản..."></textarea>
 <label for="fileInput">Tải file lên</label>
-<input type="file" id="fileInput" accept=".txt,text/plain,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,application/pdf">
+<input type="file" id="fileInput" accept=".txt,text/plain,.doc,application/msword,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,application/pdf">
 <label for="voice">Giọng đọc</label>
 <select id="voice">
  <optgroup label="Giọng Cloud chất lượng cao (Tạo MP3)">
@@ -62,32 +68,38 @@ audio{width:100%;margin-top:8px}
   <button id="createCloud" type="button">Tạo MP3 (Cloud)</button>
   <button id="stop" class="stop" type="button">Dừng</button>
 </div>
-<p id="tokenStatus"></p>
+<p id="tokenSummaryStatus"></p>
 <p id="cloudStatus" role="status" aria-live="polite"></p>
 <button id="selectAll" class="secondary" type="button">Chọn toàn bộ văn bản</button>
-<h2>File MP3 mới nhất</h2>
-<audio id="player" controls preload="none" hidden></audio>
-<p id="note">Chưa có file MP3. Nhập GitHub token và bấm 'Tạo file MP3 (Cloud)' để tạo.</p>
+<h2>Danh sách phát MP3</h2>
+<audio id="player" controls preload="none"></audio>
+<ol id="playlist" class="playlist" aria-label="Danh sách file MP3"></ol>
 </main>
 <script type="module">
-import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.2.67/build/pdf.min.mjs';
-pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@4.2.67/build/pdf.worker.min.mjs';
 const $=id=>document.getElementById(id);
 const synth=window.speechSynthesis;
 let voices=[];
+let speechRun=0;
 $('selectAll').onclick=()=>{$('textInput').focus();$('textInput').select();};
 $('fileInput').onchange=event=>{
   const input=event.target;
   const file=input.files[0];
   if(!file)return;
+  const isDoc=/\.doc$/i.test(file.name);
   const isDocx=/\.docx$/i.test(file.name);
   const isPdf=/\.pdf$/i.test(file.name)||file.type==='application/pdf';
+  $('speak').disabled=true;
+  $('createCloud').disabled=true;
+  $('cloudStatus').textContent='Đang đọc file...';
   const reader=new FileReader();
   reader.onload=async()=>{
     try{
       let text;
-      if(isDocx)text=(await mammoth.extractRawText({arrayBuffer:reader.result})).value;
+      if(isDoc)text=window.docToText(reader.result);
+      else if(isDocx)text=(await mammoth.extractRawText({arrayBuffer:reader.result})).value;
       else if(isPdf){
+        const pdfjsLib=await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.2.67/build/pdf.min.mjs');
+        pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@4.2.67/build/pdf.worker.min.mjs';
         const pdf=await pdfjsLib.getDocument({data:reader.result}).promise;
         try{
           const pages=[];
@@ -101,13 +113,44 @@ $('fileInput').onchange=event=>{
           await pdf.destroy();
         }
       }else text=reader.result;
-      if(input.files[0]===file)$('textInput').value=text;
+      if(input.files[0]!==file)return;
+      if(isDoc&&text===null){
+        $('textInput').value='';
+        $('cloudStatus').textContent='Không thể đọc file .doc này. Chỉ hỗ trợ Word 97–2003 không bị mã hóa; hãy thử lưu thành .docx.';
+        return;
+      }
+      if(!text.trim()){
+        $('textInput').value='';
+        $('cloudStatus').textContent=isPdf
+          ?'Không tìm thấy văn bản trong PDF. Nếu đây là PDF scan/ảnh, ứng dụng chưa hỗ trợ OCR; hãy dùng PDF có thể chọn hoặc sao chép chữ.'
+          :'File không chứa văn bản.';
+        return;
+      }
+      $('textInput').value=text;
+      $('cloudStatus').textContent='Đã tải văn bản từ file. Bạn có thể bấm “Đọc ngay (Máy)”.';
     }catch(error){
-      if(input.files[0]===file)alert('Không thể đọc file.');
+      if(input.files[0]===file)$('cloudStatus').textContent=isPdf
+        ?'Không thể đọc PDF. Hãy kiểm tra file hoặc thử PDF có thể chọn/sao chép chữ.'
+        :isDoc
+          ?'Không thể đọc file .doc. Hãy kiểm tra file hoặc thử lưu thành .docx.'
+          :'Không thể đọc file.';
+    }finally{
+      if(input.files[0]===file){
+        $('speak').disabled=false;
+        $('createCloud').disabled=false;
+      }
     }
   };
-  reader.onerror=()=>{if(input.files[0]===file)alert('Không thể đọc file.');};
-  if(isDocx||isPdf)reader.readAsArrayBuffer(file);else reader.readAsText(file);
+  reader.onerror=()=>{
+    if(input.files[0]===file){
+      $('cloudStatus').textContent=isDoc
+        ?'Không thể đọc file .doc. Hãy kiểm tra file hoặc thử lưu thành .docx.'
+        :'Không thể đọc file.';
+      $('speak').disabled=false;
+      $('createCloud').disabled=false;
+    }
+  };
+  if(isDoc||isDocx||isPdf)reader.readAsArrayBuffer(file);else reader.readAsText(file);
 };
 function loadVoices(){
   if(!synth)return;
@@ -142,67 +185,173 @@ function bestDeviceVoice(){
     ||voices.find(entry=>entry.vietnamese&&/google/i.test(entry.voice.name+' '+entry.voice.voiceURI))
     ||voices.find(entry=>entry.vietnamese);
 }
+function splitSpeechText(text,maxLength=180){
+  const chunks=[];
+  let remaining=text;
+  while(remaining.length>maxLength){
+    let split=remaining.lastIndexOf(' ',maxLength);
+    if(split<=0)split=maxLength;
+    chunks.push(remaining.slice(0,split).trim());
+    remaining=remaining.slice(split).trim();
+  }
+  if(remaining)chunks.push(remaining);
+  return chunks;
+}
 loadVoices();
 if(synth)synth.onvoiceschanged=loadVoices;
 $('rate').oninput=()=>$('rv').textContent=Number($('rate').value).toFixed(1);
 $('speak').onclick=()=>{
-  if(!synth){alert('Trình duyệt không hỗ trợ Web Speech API');return;}
-  const t=$('textInput').value.trim();if(!t)return;
-  synth.cancel();
-  const u=new SpeechSynthesisUtterance(t);
-  const selected=$('voice').value;
-  const v=(selected.startsWith('device:')?voices[Number(selected.slice(7))]:bestDeviceVoice())?.voice;
-  if(v){u.voice=v;u.lang=v.lang;}else u.lang='vi-VN';
-  u.rate=parseFloat($('rate').value);
-  synth.speak(u);
+  if(!synth||typeof SpeechSynthesisUtterance==='undefined'){$('cloudStatus').textContent='Trình duyệt không hỗ trợ đọc văn bản trên thiết bị.';return;}
+  const t=$('textInput').value.trim();
+  if(!t){$('cloudStatus').textContent='Hãy nhập văn bản trước khi đọc.';return;}
+  try{
+    const run=++speechRun;
+    synth.cancel();
+    const selected=$('voice').value;
+    const v=(selected.startsWith('device:')?voices[Number(selected.slice(7))]:null)?.voice||bestDeviceVoice()?.voice;
+    const voiceName=v?.name||'Tiếng Việt mặc định';
+    $('cloudStatus').textContent='Đang đọc trên thiết bị (giọng: '+voiceName+').';
+    synth.resume();
+    const chunks=splitSpeechText(t);
+    chunks.forEach((chunk,index)=>{
+      const u=new SpeechSynthesisUtterance(chunk);
+      if(v){u.voice=v;u.lang=v.lang;}else u.lang='vi-VN';
+      u.rate=parseFloat($('rate').value);
+      if(index===chunks.length-1)u.onend=()=>{if(run===speechRun)$('cloudStatus').textContent='Đọc xong.';};
+      u.onerror=event=>{
+        if(run!==speechRun)return;
+        speechRun++;
+        synth.cancel();
+        $('cloudStatus').textContent='Không thể đọc trên thiết bị'+(event.error?' ('+event.error+')':'')+'.';
+      };
+      synth.speak(u);
+    });
+  }
+  catch(error){$('cloudStatus').textContent='Không thể bắt đầu đọc trên thiết bị.';}
 };
-$('stop').onclick=()=>synth&&synth.cancel();
+$('stop').onclick=()=>{
+  speechRun++;
+  if(synth)synth.cancel();
+};
 const api='https://api.github.com/repos/duongvantoan190224/nghe-van-ban';
 const tokenKey='nghe-van-ban-github-token';
 let audioUrl=null;
-const missingAudioMessage="Chưa có file MP3. Nhập GitHub token và bấm 'Tạo file MP3 (Cloud)' để tạo.";
-$('player').onerror=()=>{
-  $('player').hidden=true;
-  $('player').removeAttribute('src');
-  $('note').textContent=missingAudioMessage;
-};
-async function loadLatestAudio(){
-  const url='audio/doc-van-ban.mp3?t='+Date.now();
+let currentAudioPath=null;
+async function playTrack(file,ref='main',autoplay=false){
   try{
-    const response=await fetch(url,{cache:'no-store'});
-    if(!response.ok||audioUrl)return;
-    $('player').src=url;
-    $('player').hidden=false;
-    $('note').textContent='Nhấn phát để nghe MP3 mới nhất.';
-  }catch(error){/* Giữ thông báo khi file chưa có hoặc mạng không khả dụng. */}
+    const headers={Accept:'application/vnd.github.raw+json'};
+    const token=$('token').value.trim();
+    if(token)headers.Authorization='Bearer '+token;
+    const path=file.path.split('/').map(encodeURIComponent).join('/');
+    const response=await fetch(api+'/contents/'+path+'?ref='+encodeURIComponent(ref)+'&t='+Date.now(),{headers,cache:'no-store'});
+    if(response.status===404){window.alert('Vui lòng tạo file MP3.');return false;}
+    if(!response.ok)throw new Error('Không thể tải MP3 (HTTP '+response.status+').');
+    const blob=await response.blob();
+    if(!blob.size){window.alert('Vui lòng tạo file MP3.');return false;}
+    const oldUrl=audioUrl;
+    audioUrl=URL.createObjectURL(new Blob([blob],{type:'audio/mpeg'}));
+    currentAudioPath=file.path;
+    $('player').src=audioUrl;
+    $('player').load();
+    if(oldUrl)URL.revokeObjectURL(oldUrl);
+    if(autoplay)await $('player').play();
+    return true;
+  }catch(error){
+    window.alert(error.message||'Không thể tải file MP3.');
+    return false;
+  }
 }
-loadLatestAudio();
+async function loadPlaylist(){
+  const playlist=$('playlist');
+  playlist.replaceChildren();
+  try{
+    const headers={Accept:'application/vnd.github+json'};
+    const token=$('token').value.trim();
+    if(token)headers.Authorization='Bearer '+token;
+    const response=await fetch(api+'/contents/audio?ref=main&t='+Date.now(),{headers,cache:'no-store'});
+    if(!response.ok)return;
+    const files=await response.json();
+    const tracks=files.filter(file=>file.type==='file'&&/\.mp3$/i.test(file.name)).sort((a,b)=>b.name.localeCompare(a.name));
+    tracks.forEach(file=>{
+      const item=document.createElement('li');
+      const name=document.createElement('span');
+      name.className='track';
+      name.textContent=file.name;
+      const play=document.createElement('button');
+      play.type='button';
+      play.textContent='▶';
+      play.setAttribute('aria-label','Phát '+file.name);
+      play.onclick=()=>playTrack(file,'main',true);
+      const remove=document.createElement('button');
+      remove.type='button';
+      remove.className='delete';
+      remove.textContent='Xóa';
+      remove.setAttribute('aria-label','Xóa '+file.name);
+      remove.onclick=async()=>{
+        if(!window.confirm('Xóa file '+file.name+' khỏi danh sách hiện tại? File có thể vẫn còn trong lịch sử Git.'))return;
+        const token=$('token').value.trim();
+        if(!token){window.alert('Hãy nhập GitHub token có quyền Contents: Read and write để xóa MP3.');return;}
+        remove.disabled=true;
+        try{
+          const path=file.path.split('/').map(encodeURIComponent).join('/');
+          const response=await fetch(api+'/contents/'+path,{
+            method:'DELETE',
+            headers:{Authorization:'Bearer '+token,Accept:'application/vnd.github+json','Content-Type':'application/json','X-GitHub-Api-Version':'2022-11-28'},
+            body:JSON.stringify({message:'Xóa '+file.name,sha:file.sha,branch:'main'})
+          });
+          if(!response.ok)throw new Error('Không xóa được MP3 (HTTP '+response.status+'). Kiểm tra quyền Contents: Read and write.');
+          if(currentAudioPath===file.path){
+            $('player').pause();
+            $('player').removeAttribute('src');
+            if(audioUrl)URL.revokeObjectURL(audioUrl);
+            audioUrl=null;
+            currentAudioPath=null;
+          }
+          await loadPlaylist();
+        }catch(error){
+          remove.disabled=false;
+          window.alert(error.message||'Không thể xóa file MP3.');
+        }
+      };
+      item.append(name,play,remove);
+      playlist.appendChild(item);
+    });
+  }catch{return;}
+}
 $('toggleToken').onclick=()=>{
   const settings=$('tokenSettings');
   settings.hidden=!settings.hidden;
   $('toggleToken').setAttribute('aria-expanded',String(!settings.hidden));
 };
-function updateTokenStatus(token){
-  const message=token?'✓ Token đã được lưu trên thiết bị này':'Chưa có token được lưu trên thiết bị này.';
-  $('tokenSettingsStatus').textContent=message;
+const savedTokenMessage='✓ Token đã được lưu trên thiết bị này';
+function updateTokenStatus(saved){
+  const message=saved?savedTokenMessage:'Chưa có token được lưu trên thiết bị này.';
   $('tokenStatus').textContent=message;
+  $('tokenSummaryStatus').textContent=message;
 }
 try{
-  const token=localStorage.getItem(tokenKey)||'';
-  $('token').value=token;
-  updateTokenStatus(token.trim());
-}catch(error){$('cloudStatus').textContent='Không thể truy cập bộ nhớ trình duyệt.';}
+  $('token').value=localStorage.getItem(tokenKey)||'';
+  const saved=Boolean($('token').value.trim());
+  updateTokenStatus(saved);
+  if(saved)$('cloudStatus').textContent=savedTokenMessage;
+}catch(error){
+  $('tokenStatus').textContent='Không thể truy cập bộ nhớ trình duyệt.';
+  $('tokenSummaryStatus').textContent='Không thể truy cập bộ nhớ trình duyệt.';
+  $('cloudStatus').textContent='Không thể truy cập bộ nhớ trình duyệt.';
+}
+loadPlaylist();
 $('saveToken').onclick=()=>{
   try{
     const token=$('token').value.trim();
     if(!token){$('cloudStatus').textContent='Hãy nhập token trước khi lưu.';return;}
     localStorage.setItem(tokenKey,token);
-    updateTokenStatus(token);
-    $('cloudStatus').textContent='Đã lưu token thành công.';
+    updateTokenStatus(true);
+    $('cloudStatus').textContent='Đã lưu token thành công. '+savedTokenMessage;
+    loadPlaylist();
   }catch(error){$('cloudStatus').textContent='Không thể lưu token trên thiết bị.';}
 };
 $('clearToken').onclick=()=>{
-  try{localStorage.removeItem(tokenKey);$('token').value='';updateTokenStatus('');$('cloudStatus').textContent='Đã xóa token.';}
+  try{localStorage.removeItem(tokenKey);$('token').value='';updateTokenStatus(false);$('cloudStatus').textContent='Đã xóa token.';loadPlaylist();}
   catch(error){$('cloudStatus').textContent='Không thể xóa token trên thiết bị.';}
 };
 $('createCloud').onclick=async()=>{
@@ -241,19 +390,9 @@ $('createCloud').onclick=async()=>{
         if(!metaResponse.ok)continue;
         const meta=await metaResponse.json();
         if(meta.request_id!==requestId)continue;
-        const audioResponse=await fetch(api+'/contents/audio/doc-van-ban.mp3?ref='+ref+'&t='+Date.now(),{
-          headers:{...headers,Accept:'application/vnd.github.raw+json'},cache:'no-store'
-        });
-        if(!audioResponse.ok)continue;
-        const blob=await audioResponse.blob();
-        if(!blob.size)continue;
-        const oldUrl=audioUrl;
-        audioUrl=URL.createObjectURL(new Blob([blob],{type:'audio/mpeg'}));
-        $('player').src=audioUrl;
-        $('player').hidden=false;
-        $('player').load();
-        if(oldUrl)URL.revokeObjectURL(oldUrl);
-        $('note').textContent='Nhấn phát để nghe MP3 mới nhất.';
+        const filename=typeof meta.filename==='string'&&/^[a-zA-Z0-9._-]+\.mp3$/.test(meta.filename)?meta.filename:'doc-van-ban.mp3';
+        if(!await playTrack({path:'audio/'+filename,name:filename},commit.sha))continue;
+        await loadPlaylist();
         $('cloudStatus').textContent='Đã xong!';
         completed=true;
         break;

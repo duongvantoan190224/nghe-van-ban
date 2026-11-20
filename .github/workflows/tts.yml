@@ -79,15 +79,41 @@ jobs:
           INPUT_REQUEST_ID: ${{ inputs.request_id }}
         run: |
           mkdir -p audio
-          cp output/doc-van-ban.mp3 audio/doc-van-ban.mp3
-          python -c 'import datetime, json, os; from pathlib import Path; Path("audio/meta.json").write_text(json.dumps({"timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(), "voice": os.environ["INPUT_VOICE"], "excerpt": os.environ["INPUT_TEXT"][:200], "request_id": os.environ["INPUT_REQUEST_ID"]}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")'
+          AUDIO_FILENAME="$(python - <<'PY'
+          import datetime
+          import json
+          import os
+          import re
+          import uuid
+          from pathlib import Path
+
+          request_id = os.environ.get("INPUT_REQUEST_ID", "")
+          if not re.fullmatch(r"[a-f0-9]{32}", request_id):
+              request_id = uuid.uuid4().hex
+          timestamp = datetime.datetime.now(datetime.timezone.utc)
+          filename = f"{timestamp.strftime('%Y%m%d-%H%M%S')}-{request_id}.mp3"
+          Path("audio", filename).write_bytes(Path("output/doc-van-ban.mp3").read_bytes())
+          metadata = {
+              "timestamp": timestamp.isoformat(),
+              "voice": os.environ["INPUT_VOICE"],
+              "excerpt": os.environ["INPUT_TEXT"][:200],
+              "request_id": request_id,
+              "filename": filename,
+          }
+          Path("audio/meta.json").write_text(
+              json.dumps(metadata, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          print(filename)
+          PY
+          )"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add audio/doc-van-ban.mp3 audio/meta.json
+          git add "audio/$AUDIO_FILENAME" audio/meta.json
           if git diff --cached --quiet; then
             echo "Không có thay đổi để commit."
           else
-            git commit -m "Cập nhật audio/doc-van-ban.mp3"
+            git commit -m "Thêm audio/$AUDIO_FILENAME"
             git pull --rebase origin main
             git push origin HEAD:main
           fi
