@@ -68,6 +68,7 @@ audio{width:100%;margin-top:8px}
   <button id="createCloud" type="button">Tạo MP3 (Cloud)</button>
   <button id="stop" class="stop" type="button">Dừng</button>
 </div>
+<p id="tokenSummaryStatus"></p>
 <p id="cloudStatus" role="status" aria-live="polite"></p>
 <button id="selectAll" class="secondary" type="button">Chọn toàn bộ văn bản</button>
 <h2>Danh sách phát MP3</h2>
@@ -324,7 +325,9 @@ $('toggleToken').onclick=()=>{
 };
 const savedTokenMessage='✓ Token đã được lưu trên thiết bị này';
 function updateTokenStatus(saved){
-  $('tokenStatus').textContent=saved?savedTokenMessage:'Chưa có token được lưu trên thiết bị này.';
+  const message=saved?savedTokenMessage:'Chưa có token được lưu trên thiết bị này.';
+  $('tokenStatus').textContent=message;
+  $('tokenSummaryStatus').textContent=message;
 }
 try{
   $('token').value=localStorage.getItem(tokenKey)||'';
@@ -333,6 +336,7 @@ try{
   if(saved)$('cloudStatus').textContent=savedTokenMessage;
 }catch(error){
   $('tokenStatus').textContent='Không thể truy cập bộ nhớ trình duyệt.';
+  $('tokenSummaryStatus').textContent='Không thể truy cập bộ nhớ trình duyệt.';
   $('cloudStatus').textContent='Không thể truy cập bộ nhớ trình duyệt.';
 }
 loadPlaylist();
