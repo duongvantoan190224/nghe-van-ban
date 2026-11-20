@@ -17,7 +17,9 @@ on:
           - vi-VN-NamMinhNeural
           - en-US-AriaNeural
           - en-US-GuyNeural
-          - en-GB-SoniaNeural
+          - zh-CN-XiaoxiaoNeural
+          - ja-JP-NanamiNeural
+          - ko-KR-SunHiNeural
       rate:
         description: "Chọn tốc độ đọc"
         required: true
@@ -29,9 +31,17 @@ on:
           - "+0%"
           - "+10%"
           - "+20%"
+      request_id:
+        description: "Mã yêu cầu từ giao diện web (không bắt buộc)"
+        required: false
+        type: string
 
 permissions:
   contents: write
+
+concurrency:
+  group: tts-audio-main
+  cancel-in-progress: false
 
 jobs:
   text-to-speech:
@@ -69,12 +79,17 @@ jobs:
           retention-days: 3
 
       - name: Lưu MP3 vào thư mục audio trên nhánh main
+        env:
+          INPUT_TEXT: ${{ inputs.text }}
+          INPUT_VOICE: ${{ inputs.voice }}
+          INPUT_REQUEST_ID: ${{ inputs.request_id }}
         run: |
           mkdir -p audio
           cp output/doc-van-ban.mp3 audio/doc-van-ban.mp3
+          python -c 'import datetime, json, os; from pathlib import Path; Path("audio/meta.json").write_text(json.dumps({"timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(), "voice": os.environ["INPUT_VOICE"], "excerpt": os.environ["INPUT_TEXT"][:200], "request_id": os.environ["INPUT_REQUEST_ID"]}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")'
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add audio/doc-van-ban.mp3
+          git add audio/doc-van-ban.mp3 audio/meta.json
           if git diff --cached --quiet; then
             echo "Không có thay đổi để commit."
           else
