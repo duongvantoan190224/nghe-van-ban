@@ -72,6 +72,7 @@ audio{width:100%;margin-top:8px}
 const $=id=>document.getElementById(id);
 const synth=window.speechSynthesis;
 let voices=[];
+let speechRun=0;
 $('selectAll').onclick=()=>{$('textInput').focus();$('textInput').select();};
 $('fileInput').onchange=event=>{
   const input=event.target;
@@ -141,6 +142,18 @@ function bestDeviceVoice(){
     ||voices.find(entry=>entry.vietnamese&&/google/i.test(entry.voice.name+' '+entry.voice.voiceURI))
     ||voices.find(entry=>entry.vietnamese);
 }
+function splitSpeechText(text,maxLength=180){
+  const chunks=[];
+  let remaining=text;
+  while(remaining.length>maxLength){
+    let split=remaining.lastIndexOf(' ',maxLength);
+    if(split<=0)split=maxLength;
+    chunks.push(remaining.slice(0,split).trim());
+    remaining=remaining.slice(split).trim();
+  }
+  if(remaining)chunks.push(remaining);
+  return chunks;
+}
 loadVoices();
 if(synth)synth.onvoiceschanged=loadVoices;
 $('rate').oninput=()=>$('rv').textContent=Number($('rate').value).toFixed(1);
@@ -149,21 +162,34 @@ $('speak').onclick=()=>{
   const t=$('textInput').value.trim();
   if(!t){$('cloudStatus').textContent='Hãy nhập văn bản trước khi đọc.';return;}
   try{
-    const u=new SpeechSynthesisUtterance(t);
+    const run=++speechRun;
+    synth.cancel();
     const selected=$('voice').value;
     const v=(selected.startsWith('device:')?voices[Number(selected.slice(7))]:null)?.voice||bestDeviceVoice()?.voice;
-    if(v){u.voice=v;u.lang=v.lang;}else u.lang='vi-VN';
-    u.rate=parseFloat($('rate').value);
     const voiceName=v?.name||'Tiếng Việt mặc định';
     $('cloudStatus').textContent='Đang đọc trên thiết bị (giọng: '+voiceName+').';
-    u.onend=()=>{$('cloudStatus').textContent='Đọc xong.';};
-    u.onerror=event=>{$('cloudStatus').textContent='Không thể đọc trên thiết bị'+(event.error?' ('+event.error+')':'')+'.';};
     synth.resume();
-    synth.speak(u);
+    const chunks=splitSpeechText(t);
+    chunks.forEach((chunk,index)=>{
+      const u=new SpeechSynthesisUtterance(chunk);
+      if(v){u.voice=v;u.lang=v.lang;}else u.lang='vi-VN';
+      u.rate=parseFloat($('rate').value);
+      if(index===chunks.length-1)u.onend=()=>{if(run===speechRun)$('cloudStatus').textContent='Đọc xong.';};
+      u.onerror=event=>{
+        if(run!==speechRun)return;
+        speechRun++;
+        synth.cancel();
+        $('cloudStatus').textContent='Không thể đọc trên thiết bị'+(event.error?' ('+event.error+')':'')+'.';
+      };
+      synth.speak(u);
+    });
   }
   catch(error){$('cloudStatus').textContent='Không thể bắt đầu đọc trên thiết bị.';}
 };
-$('stop').onclick=()=>synth&&synth.cancel();
+$('stop').onclick=()=>{
+  speechRun++;
+  if(synth)synth.cancel();
+};
 const api='https://api.github.com/repos/duongvantoan190224/nghe-van-ban';
 const tokenKey='nghe-van-ban-github-token';
 let audioUrl=null;
