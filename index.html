@@ -30,6 +30,13 @@ audio{width:100%;margin-top:8px}
 <h1>🔊 Nghe văn bản</h1>
 <button id="toggleToken" class="settings" type="button" aria-label="Cài đặt Token" aria-expanded="false" aria-controls="tokenSettings">⚙️</button>
 </header>
+<div id="tokenSettings" hidden>
+  <label for="token">GitHub Personal Access Token (PAT)</label>
+  <input id="token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false">
+  <p>Token được lưu trên thiết bị này. Chỉ dùng trên thiết bị tin cậy; mã chạy trên trang có thể truy cập token. Cần quyền Actions: Read and write cho repository.</p>
+  <button id="saveToken" class="secondary" type="button">Lưu token</button>
+  <button id="clearToken" class="secondary" type="button">Xóa token</button>
+</div>
 <label for="textInput">Văn bản</label>
 <textarea id="textInput" placeholder="Nhập hoặc dán văn bản..."></textarea>
 <label for="fileInput">Tải file lên</label>
@@ -55,13 +62,6 @@ audio{width:100%;margin-top:8px}
   <button id="stop" class="stop" type="button">Dừng</button>
 </div>
 <p id="cloudStatus" role="status" aria-live="polite"></p>
-<div id="tokenSettings" hidden>
-  <label for="token">GitHub Personal Access Token (PAT)</label>
-  <input id="token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false">
-  <p>Token được lưu trên thiết bị này. Chỉ dùng trên thiết bị tin cậy; mã chạy trên trang có thể truy cập token. Cần quyền Actions: Read and write cho repository.</p>
-  <button id="saveToken" class="secondary" type="button">Lưu token</button>
-  <button id="clearToken" class="secondary" type="button">Xóa token</button>
-</div>
 <button id="selectAll" class="secondary" type="button">Chọn toàn bộ văn bản</button>
 <h2>File MP3 mới nhất</h2>
 <audio id="player" controls preload="none" hidden></audio>
