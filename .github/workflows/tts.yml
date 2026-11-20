@@ -1,0 +1,65 @@
+name: Chuyển văn bản thành giọng nói
+
+on:
+  workflow_dispatch:
+    inputs:
+      text:
+        description: "Dán văn bản bạn muốn chuyển thành giọng nói"
+        required: true
+        type: string
+      voice:
+        description: "Chọn giọng đọc"
+        required: true
+        type: choice
+        default: vi-VN-HoaiMyNeural
+        options:
+          - vi-VN-HoaiMyNeural
+          - vi-VN-NamMinhNeural
+          - en-US-AriaNeural
+          - en-US-GuyNeural
+          - en-GB-SoniaNeural
+      rate:
+        description: "Chọn tốc độ đọc"
+        required: true
+        type: choice
+        default: "+0%"
+        options:
+          - "-20%"
+          - "-10%"
+          - "+0%"
+          - "+10%"
+          - "+20%"
+
+permissions:
+  contents: read
+
+jobs:
+  text-to-speech:
+    name: Tạo tệp âm thanh MP3
+    runs-on: ubuntu-latest
+    steps:
+      - name: Lấy mã nguồn
+        uses: actions/checkout@v4
+
+      - name: Cài đặt Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cài đặt edge-tts
+        run: python -m pip install --upgrade edge-tts
+
+      - name: Chuyển văn bản thành giọng nói
+        env:
+          INPUT_TEXT: ${{ inputs.text }}
+          INPUT_VOICE: ${{ inputs.voice }}
+          INPUT_RATE: ${{ inputs.rate }}
+        run: python tts.py
+
+      - name: Tải tệp MP3 xuống
+        uses: actions/upload-artifact@v4
+        with:
+          name: audio-ket-qua
+          path: output/doc-van-ban.mp3
+          if-no-files-found: error
+          retention-days: 3
