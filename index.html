@@ -8,12 +8,11 @@
 <style>
 body{font-family:-apple-system,system-ui,sans-serif;margin:0;padding:16px;padding-bottom:env(safe-area-inset-bottom);background:#f2f2f7;color:#111}
 main{max-width:600px;margin:auto}
-header{display:flex;align-items:center;justify-content:space-between;gap:12px}
 header h1{margin:0.67em 0}
-button.settings{width:auto;margin:0;padding:8px;background:transparent;color:inherit;font-size:24px}
-.controls{display:flex;gap:8px}
-.controls button{width:auto;flex:1}
-.controls button.stop{flex:0 0 auto}
+.controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.controls .stop{grid-column:1/-1}
+.controls small{display:block;margin-top:6px;color:#555}
+button.settings{width:auto}
 label{display:block;margin:14px 0 6px;font-weight:600}
 textarea,select,button,input[type=password],input[type=text]{width:100%;font-size:16px;padding:12px;border:1px solid #ccc;border-radius:12px;box-sizing:border-box}
 textarea{min-height:180px}
@@ -29,15 +28,7 @@ audio{width:100%;margin-top:8px}
 <main>
 <header>
 <h1>🔊 Nghe văn bản</h1>
-<button id="toggleToken" class="settings" type="button" aria-label="Cài đặt token GitHub" title="Cài đặt token GitHub" aria-expanded="false" aria-controls="tokenSettings">⚙️</button>
 </header>
-<div id="tokenSettings" hidden>
-  <label for="token">GitHub Personal Access Token (PAT)</label>
-  <input id="token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false">
-  <p>Token được lưu trên thiết bị này. Chỉ dùng trên thiết bị tin cậy; mã chạy trên trang có thể truy cập token. Cần quyền Actions: Read and write cho repository.</p>
-  <button id="saveToken" class="secondary" type="button">Lưu token</button>
-  <button id="clearToken" class="secondary" type="button">Xóa token</button>
-</div>
 <label for="textInput">Văn bản</label>
 <textarea id="textInput" placeholder="Nhập hoặc dán văn bản..."></textarea>
 <label for="voice">Giọng đọc</label>
@@ -56,17 +47,31 @@ audio{width:100%;margin-top:8px}
 <label for="rate">Tốc độ: <span id="rv">1.0</span>x</label>
 <input type="range" id="rate" min="0.5" max="2" step="0.1" value="1">
 <div class="controls">
-  <button id="speak" type="button">▶ Đọc ngay</button>
-  <button id="createCloud" type="button">Tạo MP3</button>
-  <button id="stop" class="stop" type="button">■ Dừng</button>
+  <div>
+    <button id="speak" type="button">Đọc ngay (Máy)</button>
+    <small>Nghe tức thì trên thiết bị (nhanh, dùng giọng máy)</small>
+  </div>
+  <div>
+    <button id="createCloud" type="button">Tạo MP3 (Cloud)</button>
+    <small>Tạo giọng Hoài Mỹ / Nam Minh qua GitHub Actions (~25 giây)</small>
+  </div>
+  <button id="stop" class="stop" type="button">Dừng</button>
 </div>
 <p id="cloudStatus" role="status" aria-live="polite"></p>
+<button id="toggleToken" class="secondary settings" type="button" aria-expanded="false" aria-controls="tokenSettings">Cài đặt Token</button>
+<div id="tokenSettings" hidden>
+  <label for="token">GitHub Personal Access Token (PAT)</label>
+  <input id="token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false">
+  <p>Token được lưu trên thiết bị này. Chỉ dùng trên thiết bị tin cậy; mã chạy trên trang có thể truy cập token. Cần quyền Actions: Read and write cho repository.</p>
+  <button id="saveToken" class="secondary" type="button">Lưu token</button>
+  <button id="clearToken" class="secondary" type="button">Xóa token</button>
+</div>
 <button id="selectAll" class="secondary" type="button">Chọn toàn bộ văn bản</button>
 <label for="fileInput">Tải file lên</label>
 <input type="file" id="fileInput" accept=".txt,text/plain,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,application/pdf">
 <h2>File MP3 mới nhất</h2>
-<audio id="player" controls preload="none"></audio>
-<p id="note"></p>
+<audio id="player" controls preload="none" hidden></audio>
+<p id="note">Chưa có file MP3. Nhập GitHub token và bấm 'Tạo file MP3 (Cloud)' để tạo.</p>
 </main>
 <script type="module">
 import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.2.67/build/pdf.min.mjs';
@@ -156,11 +161,26 @@ $('speak').onclick=()=>{
   synth.speak(u);
 };
 $('stop').onclick=()=>synth&&synth.cancel();
-$('player').src='audio/doc-van-ban.mp3?t='+Date.now();
-$('player').onerror=()=>$('note').textContent='Chưa có file MP3. Hãy chạy workflow để tạo.';
 const api='https://api.github.com/repos/duongvantoan190224/nghe-van-ban';
 const tokenKey='nghe-van-ban-github-token';
 let audioUrl=null;
+const missingAudioMessage="Chưa có file MP3. Nhập GitHub token và bấm 'Tạo file MP3 (Cloud)' để tạo.";
+$('player').onerror=()=>{
+  $('player').hidden=true;
+  $('player').removeAttribute('src');
+  $('note').textContent=missingAudioMessage;
+};
+async function loadLatestAudio(){
+  const url='audio/doc-van-ban.mp3?t='+Date.now();
+  try{
+    const response=await fetch(url,{cache:'no-store'});
+    if(!response.ok||audioUrl)return;
+    $('player').src=url;
+    $('player').hidden=false;
+    $('note').textContent='Nhấn phát để nghe MP3 mới nhất.';
+  }catch(error){/* Giữ thông báo khi file chưa có hoặc mạng không khả dụng. */}
+}
+loadLatestAudio();
 $('toggleToken').onclick=()=>{
   const settings=$('tokenSettings');
   settings.hidden=!settings.hidden;
@@ -224,6 +244,7 @@ $('createCloud').onclick=async()=>{
         const oldUrl=audioUrl;
         audioUrl=URL.createObjectURL(new Blob([blob],{type:'audio/mpeg'}));
         $('player').src=audioUrl;
+        $('player').hidden=false;
         $('player').load();
         if(oldUrl)URL.revokeObjectURL(oldUrl);
         $('note').textContent='Nhấn phát để nghe MP3 mới nhất.';
