@@ -13,23 +13,27 @@ Token được lưu trong `localStorage` của trình duyệt, không được m
 
 Trang kiểm tra kết quả qua GitHub API và tải MP3 từ cùng một commit, không phụ thuộc vào thời điểm GitHub Pages triển khai lại. Mỗi lần tạo có một file riêng; nếu quá 10 phút chưa có kết quả, kiểm tra tab **Actions**.
 
-## Thư viện Pháp luật
+## Tài liệu Google Drive
 
-Trang không gọi trực tiếp Thư viện Pháp luật. Đặt hằng số `TVPL_API_BASE` trong `index.html` thành URL gốc của một proxy tin cậy, ví dụ `https://proxy.example.com/tvpl`, rồi triển khai lại GitHub Pages. URL phải dùng HTTPS (HTTP chỉ cho phép trên localhost). Proxy cần hỗ trợ CORS cho origin GitHub Pages và các header `Content-Type`, `Authorization`; không chuyển hướng các yêu cầu. Repository này **không cung cấp proxy**: cần tự triển khai dịch vụ có quyền truy cập phù hợp và tuân thủ điều khoản của Thư viện Pháp luật.
+Proxy Python trong `proxy/` đọc các tệp `.docx` và `.pdf` trực tiếp trong [thư mục Drive công khai](https://drive.google.com/drive/folders/1G9hMq9r0g7KJoz09n61SqTTcXLiE1akl). Không cần đăng nhập trên trang. Chỉ tệp công khai, nằm trực tiếp trong thư mục và có đúng định dạng được hỗ trợ; thư mục con và Google Docs không được liệt kê. Tìm kiếm không phân biệt hoa thường theo tên tệp; để trống để liệt kê tất cả.
 
-Hợp đồng JSON giữa trang và proxy:
+Proxy dùng Drive API v3 và cần một API key trên máy chủ. Bật Google Drive API trong Google Cloud, tạo key và giới hạn key cho Drive API và địa chỉ IP ngoài của VPS. Không đưa key vào Git, `index.html`, URL hoặc log. Quyền xem công khai của thư mục **và các tệp** phải cho phép Drive API đọc chúng.
 
-- `POST /login`: nhận `{"username":"...","password":"..."}`, trả `{"token":"..."}` khi đăng nhập thành công; trả HTTP 401/403 nếu không hợp lệ.
-- `GET /documents?q=...`: nhận token phiên trong header `Authorization` theo scheme Bearer, trả `{"results":[{"id":"...","title":"...","number":"...","summary":"..."}]}`. `id` và `title` là chuỗi bắt buộc; `number`, `summary` là tùy chọn.
-- `GET /documents/{id}`: nhận cùng header, trả `{"text":"..."}` với nội dung văn bản đã làm sạch; hoặc `{"html":"..."}` để trang loại bỏ các thành phần HTML thông dụng. Proxy nên trích xuất đúng nội dung chính và loại quảng cáo, header, footer trước khi trả về vì cấu trúc trang nguồn có thể thay đổi. `id` là định danh, không phải URL.
+### Triển khai trên VPS
 
-Proxy phải bảo vệ thông tin đăng nhập và phiên, chỉ truy cập các nguồn được phép, không ghi log mật khẩu và trả lỗi HTTP phù hợp. Mật khẩu chỉ gửi đến proxy đã cấu hình và được xóa khỏi ô sau khi đăng nhập thành công. Token TVPL chỉ giữ trong bộ nhớ của trang, mất khi tải lại hoặc đăng xuất; đăng xuất trên trang không thu hồi phiên phía máy chủ. Mã chạy trên trang vẫn có thể truy cập phiên này, nên chỉ sử dụng trên thiết bị tin cậy.
+1. Cài Python 3.11+, nginx và Certbot; trỏ DNS của tên miền proxy tới VPS và mở cổng 80/443. Tạo môi trường ảo và cài `python -m pip install -r proxy/requirements.txt`.
+2. Tạo tệp cấu hình môi trường chỉ máy chủ đọc được, chẳng hạn `/etc/nghe-van-ban.env` với quyền `600`, chứa `GOOGLE_DRIVE_API_KEY=<key>`. Chạy `proxy/server.py` bằng Python trong môi trường ảo, dưới tài khoản hệ thống không đặc quyền; dùng systemd hoặc trình quản lý tiến trình để nạp tệp môi trường và tự khởi động lại. Server chỉ lắng nghe `127.0.0.1:8000`; không mở cổng này ra Internet.
+3. Cấp chứng chỉ Let's Encrypt cho tên miền bằng Certbot. Đưa `proxy/nginx.conf` vào **http context** của nginx, thay toàn bộ `proxy.example.com` bằng tên miền thực và kiểm tra đường dẫn chứng chỉ. Kiểm tra `nginx -t`, reload nginx và cấu hình gia hạn chứng chỉ tự động. Mẫu bật TLS, giới hạn 20 yêu cầu/phút/IP (burst 10), tối đa 3 kết nối/IP và CORS chỉ cho `https://duongvantoan190224.github.io`. Nếu nginx ở sau proxy/load balancer khác, chỉ cấu hình real IP cho upstream đáng tin cậy.
+4. Đặt `TVPL_API_BASE` trong `index.html` thành URL HTTPS gốc thực tế, ví dụ `https://proxy.example.com` (không có dấu `/` cuối), rồi triển khai lại GitHub Pages. URL hiện để trống vì chưa có tên miền/VPS được cung cấp; khi để trống giao diện báo chưa cấu hình, không dùng dữ liệu mẫu. HTTP chỉ chấp nhận cho localhost.
 
-Để trống `TVPL_API_BASE` sẽ bật **chế độ mẫu**, không kết nối hoặc xác thực tài khoản thật. Chế độ này chấp nhận bất kỳ user/pass không rỗng và chỉ trả dữ liệu minh họa, không phải văn bản pháp luật. Kiểm thử nhanh:
+Hợp đồng proxy:
 
-1. Mở **Cài đặt Thư viện Pháp luật**, nhập user/pass và nhấn **Đăng nhập**; cài đặt đóng sau khi thành công.
-2. Tìm `88/2021/TT-BTC`, chọn kết quả rồi nhấn **Tải văn bản**. Với chế độ mẫu, nội dung chỉ mang tính minh họa.
-3. Kiểm tra nội dung xuất hiện trong ô **Văn bản**, sau đó nhấn **Đọc ngay (Máy)** hoặc **Tạo MP3 (Cloud)**. Tạo MP3 vẫn cần GitHub PAT như hướng dẫn ở trên.
+- `GET /documents?q=...` trả `{"results":[{"id":"...","title":"..."}]}`; `q` là tùy chọn.
+- `GET /documents/{id}` trả `{"text":"..."}`. ID phải thuộc thư mục được cấu hình; proxy không nhận URL tùy ý. Lỗi trả JSON `{"error":"..."}` cùng HTTP status tương ứng.
+
+DOCX lấy nội dung body (bao gồm bảng), không lấy header/footer. PDF dùng lớp văn bản, bỏ dòng đầu/cuối lặp lại trên ít nhất 2/3 số trang khi có ít nhất 3 trang; quy tắc này có thể bỏ sót hoặc nhầm nội dung, nên kiểm tra lại kết quả. PDF scan không được OCR, PDF mã hóa không được hỗ trợ; tệp tối đa 20 MB. Bố cục PDF và phông chữ có thể ảnh hưởng chất lượng trích xuất.
+
+Sau khi triển khai, mở GitHub Pages, nhấn **Tìm / liệt kê tài liệu**, chọn tệp và nhấn **Tải văn bản**, rồi kiểm tra nội dung và nhấn **Đọc ngay (Máy)** hoặc **Tạo MP3 (Cloud)**. Tạo MP3 vẫn cần GitHub PAT và công khai dữ liệu như hướng dẫn phía trên. CORS chỉ hạn chế trình duyệt, không phải xác thực: bất kỳ ai vẫn có thể gọi API công khai trực tiếp và tiêu thụ quota, nên theo dõi quota và điều chỉnh rate limit khi cần.
 
 ## Chạy workflow thủ công
 
