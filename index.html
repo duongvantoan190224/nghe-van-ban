@@ -73,7 +73,6 @@ audio{width:100%;margin-top:8px}
   <button id="stop" class="stop" type="button">Dừng</button>
 </div>
 <p id="cloudStatus" role="status" aria-live="polite"></p>
-<audio id="player" controls preload="none"></audio>
 <label for="voice">Giọng đọc</label>
 <select id="voice">
  <optgroup label="Giọng Cloud chất lượng cao (Tạo MP3)">
@@ -89,6 +88,7 @@ audio{width:100%;margin-top:8px}
 </select>
 <label for="rate">Tốc độ: <span id="rv">1.0</span>x</label>
 <input type="range" id="rate" min="0.5" max="2" step="0.1" value="1">
+<audio id="player" controls preload="none"></audio>
 <h2>Danh sách phát MP3</h2>
 <ol id="playlist" class="playlist" aria-label="Danh sách file MP3"></ol>
 </main>
