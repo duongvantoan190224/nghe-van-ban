@@ -23,7 +23,7 @@ Workflow **Đồng bộ tài liệu và triển khai Pages** đọc các tệp `
 2. Trong GitHub, vào **Settings → Secrets and variables → Actions**, tạo repository secret `NGHE_VB` chứa toàn bộ nội dung JSON của khóa. Không commit khóa, token hay tệp khóa vào repository. Workflow chỉ sử dụng secret trong bước đồng bộ và yêu cầu quyền Drive chỉ đọc.
 3. Trong **Settings → Pages**, chọn nguồn **GitHub Actions**. Cho phép workflow ghi nội dung repository nếu chính sách repository yêu cầu. Workflow cần quyền triển khai môi trường `github-pages`.
 4. Vào **Actions → Đồng bộ tài liệu và triển khai Pages → Run workflow**, chạy trên `main`. Sau đó workflow tự chạy hằng ngày lúc 02:17 UTC; thay đổi mã trên `main` cũng được triển khai lên Pages. Lần đầu danh sách rỗng cho đến khi đồng bộ thành công.
-5. Trên Pages, nhấn **Tìm / liệt kê tài liệu**, chọn tệp và **Tải văn bản**, sau đó đọc ngay hoặc tạo MP3 như trên.
+5. Trên Pages, nhấn **Tìm / liệt kê tài liệu**, chọn tệp và **Tải văn bản**, sau đó đọc ngay hoặc tạo MP3 như trên. Nhấn **Làm mới danh sách** để tải lại dữ liệu đã triển khai, bỏ qua cache trình duyệt; từ khóa tìm kiếm hiện tại vẫn được áp dụng và số lượng tài liệu được hiển thị. Liên kết **Chạy đồng bộ Drive (Actions)** mở trang workflow để chạy thủ công trên GitHub; chờ lần chạy và triển khai hoàn tất trước khi làm mới danh sách.
 
 Nội dung và tên tệp được commit vào `main` và xuất bản trên Pages; chúng có thể công khai ngay cả khi tệp Drive là riêng tư. Không đồng bộ tài liệu nhạy cảm. Việc xóa tệp khỏi Drive sẽ xóa JSON khỏi phiên bản hiện tại sau lần đồng bộ thành công, nhưng không xóa nội dung khỏi lịch sử Git.
 
