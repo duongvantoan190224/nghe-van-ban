@@ -31,6 +31,7 @@ audio{width:100%;margin-top:8px}
 .documents{margin:16px 0;padding:12px;border:1px solid #ccc;border-radius:12px;background:#fff}
 .documents h2{font-size:18px;margin:0 0 8px}
 .documents p{overflow-wrap:anywhere}
+.documents .workflow-link{display:block;box-sizing:border-box;margin-top:14px;padding:12px;border-radius:12px;background:#555;color:#fff;text-align:center;text-decoration:none;font-weight:600}
 </style>
 </head>
 <body>
@@ -53,6 +54,8 @@ audio{width:100%;margin-top:8px}
   <label for="documentsQuery">Tìm theo tên tệp (để trống để liệt kê)</label>
   <input id="documentsQuery" type="text" maxlength="200" placeholder="Tên tài liệu">
   <button id="documentsSearch" type="button">Tìm / liệt kê tài liệu</button>
+  <button id="documentsRefresh" class="secondary" type="button">Làm mới danh sách</button>
+  <a class="workflow-link" href="https://github.com/duongvantoan190224/nghe-van-ban/actions/workflows/pages.yml" target="_blank" rel="noopener noreferrer">Chạy đồng bộ Drive (Actions)</a>
   <label for="documentsResults">Kết quả</label>
   <select id="documentsResults" disabled><option value="">Chưa có kết quả</option></select>
   <button id="documentsLoad" type="button" disabled>Tải văn bản</button>
@@ -97,6 +100,7 @@ let documentsBusy=false;
 function documentsStatus(message){$('documentsStatus').textContent=message;}
 function documentsControls(){
   $('documentsSearch').disabled=documentsBusy;
+  $('documentsRefresh').disabled=documentsBusy;
   $('documentsResults').disabled=documentsBusy||!documentResults.length;
   $('documentsLoad').disabled=documentsBusy||!documentResults.length||!$('documentsResults').value;
 }
@@ -118,27 +122,36 @@ async function documentsRequest(path){
 function documentsError(error){
   documentsStatus(error instanceof TypeError?'Không thể tải dữ liệu. Kiểm tra kết nối mạng.':error.message||'Không thể xử lý yêu cầu.');
 }
-$('documentsSearch').onclick=async()=>{
+async function searchDocuments(refresh=false){
   const query=$('documentsQuery').value.trim();
-  clearDocumentResults();
-  documentsBusy=true;documentsControls();documentsStatus('Đang tìm kiếm...');
+  if(!refresh)clearDocumentResults();
+  documentsBusy=true;documentsControls();
+  $('documentsRefresh').textContent=refresh?'Đang làm mới...':'Làm mới danh sách';
+  documentsStatus(refresh?'Đang làm mới danh sách...':'Đang tìm kiếm...');
   try{
     const result=await documentsRequest('./documents.json');
     if(!Array.isArray(result.results))throw new Error('Danh sách tài liệu không hợp lệ.');
-    documentResults=result.results.filter(item=>item&&typeof item.id==='string'&&/^[A-Za-z0-9_-]{1,200}$/.test(item.id)&&typeof item.title==='string'&&item.title&&item.title.toLocaleLowerCase('vi').includes(query.toLocaleLowerCase('vi')));
+    const documents=result.results.filter(item=>item&&typeof item.id==='string'&&/^[A-Za-z0-9_-]{1,200}$/.test(item.id)&&typeof item.title==='string'&&item.title);
+    documentResults=documents.filter(item=>item.title.toLocaleLowerCase('vi').includes(query.toLocaleLowerCase('vi')));
     $('documentsResults').replaceChildren();
     if(!documentResults.length){
       $('documentsResults').appendChild(new Option('Không có kết quả',''));
-      documentsStatus('Không tìm thấy tài liệu.');
     }else{
       documentResults.forEach((item,index)=>{
         $('documentsResults').appendChild(new Option(item.title,String(index)));
       });
-      documentsStatus('Tìm thấy '+documentResults.length+' tài liệu.');
     }
+    documentsStatus(refresh
+      ?'Đã làm mới: '+documents.length+' tài liệu. Tìm thấy '+documentResults.length+' tài liệu phù hợp.'
+      :documentResults.length?'Tìm thấy '+documentResults.length+' tài liệu.':'Không tìm thấy tài liệu.');
   }catch(error){documentsError(error);}
-  finally{documentsBusy=false;documentsControls();}
-};
+  finally{
+    documentsBusy=false;documentsControls();
+    $('documentsRefresh').textContent='Làm mới danh sách';
+  }
+}
+$('documentsSearch').onclick=()=>searchDocuments();
+$('documentsRefresh').onclick=()=>searchDocuments(true);
 $('documentsResults').onchange=documentsControls;
 $('documentsLoad').onclick=async()=>{
   const item=documentResults[Number($('documentsResults').value)];
