@@ -51,10 +51,22 @@ audio{width:100%;margin-top:8px}
   <button id="clearToken" class="secondary" type="button">Xóa token</button>
   <a class="workflow-link" href="https://github.com/duongvantoan190224/nghe-van-ban/actions/workflows/pages.yml" target="_blank" rel="noopener noreferrer">Chạy đồng bộ Drive (Actions)</a>
 </div>
+<section class="documents" aria-labelledby="documentsHeading">
+  <h2 id="documentsHeading">Tài liệu Google Drive</h2>
+  <p id="documentsStatus" role="status" aria-live="polite"></p>
+  <label for="documentsQuery">Tìm theo tên tệp (để trống để liệt kê)</label>
+  <input id="documentsQuery" type="text" maxlength="200" placeholder="Tên tài liệu">
+  <button id="documentsSearch" type="button">Tìm / liệt kê tài liệu</button>
+  <button id="documentsRefresh" class="secondary" type="button">Làm mới danh sách</button>
+  <label for="documentsResults">Kết quả</label>
+  <select id="documentsResults" disabled><option value="">Chưa có kết quả</option></select>
+  <button id="documentsLoad" type="button" disabled>Tải văn bản</button>
+</section>
 <label for="textInput">Văn bản</label>
 <textarea id="textInput" placeholder="Nhập hoặc dán văn bản..."></textarea>
 <label for="fileInput">Tải file lên</label>
 <input type="file" id="fileInput" accept=".txt,text/plain,.doc,application/msword,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,application/pdf">
+<button id="selectAll" class="secondary" type="button">Chọn toàn bộ văn bản</button>
 <div class="controls">
   <button id="speak" type="button">Đọc ngay (Máy)</button>
   <button id="createCloud" type="button">Tạo MP3 (Cloud)</button>
@@ -77,18 +89,6 @@ audio{width:100%;margin-top:8px}
 </select>
 <label for="rate">Tốc độ: <span id="rv">1.0</span>x</label>
 <input type="range" id="rate" min="0.5" max="2" step="0.1" value="1">
-<button id="selectAll" class="secondary" type="button">Chọn toàn bộ văn bản</button>
-<section class="documents" aria-labelledby="documentsHeading">
-  <h2 id="documentsHeading">Tài liệu Google Drive</h2>
-  <p id="documentsStatus" role="status" aria-live="polite"></p>
-  <label for="documentsQuery">Tìm theo tên tệp (để trống để liệt kê)</label>
-  <input id="documentsQuery" type="text" maxlength="200" placeholder="Tên tài liệu">
-  <button id="documentsSearch" type="button">Tìm / liệt kê tài liệu</button>
-  <button id="documentsRefresh" class="secondary" type="button">Làm mới danh sách</button>
-  <label for="documentsResults">Kết quả</label>
-  <select id="documentsResults" disabled><option value="">Chưa có kết quả</option></select>
-  <button id="documentsLoad" type="button" disabled>Tải văn bản</button>
-</section>
 <h2>Danh sách phát MP3</h2>
 <ol id="playlist" class="playlist" aria-label="Danh sách file MP3"></ol>
 </main>
