@@ -1,0 +1,77 @@
+name: Đồng bộ tài liệu và triển khai Pages
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-publishing
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Lấy mã nguồn
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Cài đặt Python
+        if: github.event_name != 'push'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cài đặt thư viện
+        if: github.event_name != 'push'
+        run: python -m pip install -r requirements.txt
+
+      - name: Đồng bộ từ Google Drive
+        if: github.event_name != 'push'
+        env:
+          NGHE_VB: ${{ secrets.NGHE_VB }}
+        run: python sync_drive.py
+
+      - name: Lưu dữ liệu tĩnh
+        if: github.event_name != 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add documents.json documents/
+          if ! git diff --cached --quiet; then
+            git commit -m "Đồng bộ tài liệu Google Drive"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
+
+      - name: Chuẩn bị trang tĩnh
+        run: |
+          mkdir -p /tmp/nghe-pages/documents
+          cp index.html documents.json /tmp/nghe-pages/
+          cp -a audio /tmp/nghe-pages/
+          if [ -d documents ]; then cp -a documents/. /tmp/nghe-pages/documents/; fi
+
+      - name: Cấu hình Pages
+        uses: actions/configure-pages@v5
+
+      - name: Tải trang tĩnh lên
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: /tmp/nghe-pages
+
+      - name: Triển khai GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
