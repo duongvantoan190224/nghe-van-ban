@@ -23,6 +23,10 @@ MAX_XML = 50 * 1024 * 1024
 WORD = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 
 
+class DocumentError(Exception):
+    pass
+
+
 def drive_request(session, path="", params=None, limit=MAX_FILE):
     with session.get(API + path, params=params, timeout=60, stream=True,
                      allow_redirects=False) as response:
@@ -130,6 +134,13 @@ def write_json(path, value):
 
 
 def sync(session, root):
+    folder = json.loads(drive_request(session, "/" + FOLDER_ID,
+                                      {"fields": "id,mimeType,trashed"},
+                                      limit=4 * 1024 * 1024))
+    if (folder.get("id") != FOLDER_ID
+            or folder.get("mimeType") != "application/vnd.google-apps.folder"
+            or folder.get("trashed")):
+        raise ValueError("Không thể truy cập thư mục Google Drive.")
     items = documents(session)
     with tempfile.TemporaryDirectory() as temporary:
         staging = Path(temporary)
@@ -145,8 +156,8 @@ def sync(session, root):
                 if not text:
                     raise ValueError("Không có văn bản; PDF ảnh chưa được hỗ trợ OCR.")
             except Exception:
-                raise ValueError(f"Không thể xử lý tài liệu ID {file_id}. "
-                                 "Kiểm tra định dạng, kích thước và lớp văn bản.") from None
+                raise DocumentError(f"Không thể xử lý tài liệu ID {file_id}. "
+                                    "Kiểm tra định dạng, kích thước và lớp văn bản.") from None
             write_json(staging / (file_id + ".json"), {"text": text})
             results.append({"id": file_id, "title": item["name"]})
         target = root / "documents"
@@ -168,6 +179,8 @@ def main():
             info, scopes=["https://www.googleapis.com/auth/drive.readonly"])
         with AuthorizedSession(credentials) as session:
             sync(session, Path(__file__).resolve().parent)
+    except DocumentError as error:
+        raise SystemExit(str(error)) from None
     except Exception:
         raise SystemExit("Đồng bộ thất bại. Kiểm tra secret NGHE_VB, quyền Drive và định dạng tài liệu.") from None
 
