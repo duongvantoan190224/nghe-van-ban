@@ -112,13 +112,18 @@ def docx_text(data):
     paragraphs = []
     for paragraph in body.iter(WORD + "p"):
         parts = []
-        for element in paragraph.iter():
+        def append_text(element):
+            if element is not paragraph and element.tag == WORD + "p":
+                return
             if element.tag == WORD + "t":
                 parts.append(element.text or "")
             elif element.tag == WORD + "tab":
                 parts.append("\t")
             elif element.tag in (WORD + "br", WORD + "cr"):
                 parts.append("\n")
+            for child in element:
+                append_text(child)
+        append_text(paragraph)
         paragraphs.append("".join(parts))
     return clean_text("\n".join(paragraphs))
 
