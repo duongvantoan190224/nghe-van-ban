@@ -28,6 +28,9 @@ audio{width:100%;margin-top:8px}
 .playlist .track{flex:1;min-width:0;overflow-wrap:anywhere}
 .playlist button{width:auto;margin:0;padding:8px 12px}
 .playlist .delete{background:#ff3b30}
+.tvpl{margin:16px 0;padding:12px;border:1px solid #ccc;border-radius:12px;background:#fff}
+.tvpl h2{font-size:18px;margin:0 0 8px}
+.tvpl p{overflow-wrap:anywhere}
 </style>
 </head>
 <body>
@@ -44,6 +47,25 @@ audio{width:100%;margin-top:8px}
   <button id="saveToken" class="secondary" type="button">Lưu token</button>
   <button id="clearToken" class="secondary" type="button">Xóa token</button>
 </div>
+<section class="tvpl" aria-labelledby="tvplHeading">
+  <h2 id="tvplHeading">Thư viện Pháp luật</h2>
+  <button id="toggleTvpl" class="secondary" type="button" aria-expanded="false" aria-controls="tvplSettings">Cài đặt Thư viện Pháp luật</button>
+  <div id="tvplSettings" hidden>
+    <label for="tvplUser">Tài khoản (User)</label>
+    <input id="tvplUser" type="text" autocomplete="username" autocapitalize="off" spellcheck="false">
+    <label for="tvplPassword">Mật khẩu (Pass)</label>
+    <input id="tvplPassword" type="password" autocomplete="current-password">
+    <button id="tvplLogin" type="button">Đăng nhập</button>
+    <button id="tvplLogout" class="secondary" type="button" hidden>Đăng xuất</button>
+  </div>
+  <p id="tvplStatus" role="status" aria-live="polite"></p>
+  <label for="tvplQuery">Từ khóa / số hiệu văn bản</label>
+  <input id="tvplQuery" type="text" placeholder="Ví dụ: 88/2021/TT-BTC">
+  <button id="tvplSearch" type="button">Tìm kiếm</button>
+  <label for="tvplResults">Kết quả tìm kiếm</label>
+  <select id="tvplResults" disabled><option value="">Chưa có kết quả</option></select>
+  <button id="tvplLoad" type="button" disabled>Tải văn bản</button>
+</section>
 <label for="textInput">Văn bản</label>
 <textarea id="textInput" placeholder="Nhập hoặc dán văn bản..."></textarea>
 <label for="fileInput">Tải file lên</label>
@@ -79,6 +101,138 @@ const $=id=>document.getElementById(id);
 const synth=window.speechSynthesis;
 let voices=[];
 let speechRun=0;
+// Để trống để dùng dữ liệu mẫu; xem README trước khi cấu hình proxy.
+const TVPL_API_BASE='';
+const tvplMockDocuments=[{
+  id:'mau-1',title:'Văn bản minh họa (không phải văn bản pháp luật)',number:'88/2021/TT-BTC',
+  summary:'Dữ liệu mẫu để kiểm tra giao diện.',
+  text:'Đây là nội dung minh họa, không phải văn bản pháp luật. Hãy cấu hình proxy để tải văn bản thực tế.'
+}];
+let tvplToken='';
+let tvplResults=[];
+let tvplBusy=false;
+function tvplStatus(message){$('tvplStatus').textContent=message;}
+function tvplControls(){
+  const loggedIn=Boolean(tvplToken);
+  $('tvplLogin').disabled=tvplBusy;
+  $('tvplLogout').hidden=!loggedIn;
+  $('tvplLogout').disabled=tvplBusy;
+  $('tvplSearch').disabled=tvplBusy||!loggedIn;
+  $('tvplResults').disabled=tvplBusy||!tvplResults.length;
+  $('tvplLoad').disabled=tvplBusy||!loggedIn||!$('tvplResults').value;
+}
+function clearTvplResults(){
+  tvplResults=[];
+  $('tvplResults').replaceChildren(new Option('Chưa có kết quả',''));
+  tvplControls();
+}
+function tvplBase(){
+  const url=new URL(TVPL_API_BASE,location.href);
+  if(url.protocol!=='https:'&&!(url.protocol==='http:'&&['localhost','127.0.0.1','[::1]'].includes(url.hostname)))
+    throw new Error('Proxy phải dùng HTTPS (hoặc HTTP trên localhost).');
+  if(url.username||url.password||url.search||url.hash)throw new Error('TVPL_API_BASE không hợp lệ.');
+  return url.href.replace(/\/+$/,'');
+}
+async function tvplRequest(path,options={}){
+  const response=await fetch(tvplBase()+path,{
+    ...options,credentials:'omit',redirect:'error',cache:'no-store',
+    headers:{Accept:'application/json',...(tvplToken&&path!=='/login'?{Authorization:'Bearer '+tvplToken}:{}),...options.headers}
+  });
+  if(!response.ok){
+    if(response.status===401||response.status===403)throw new Error('Đăng nhập không hợp lệ hoặc phiên đã hết hạn. Vui lòng đăng nhập lại.');
+    throw new Error('Proxy Thư viện Pháp luật trả về lỗi HTTP '+response.status+'.');
+  }
+  return response.json();
+}
+function cleanTvplHtml(html){
+  const template=document.createElement('template');
+  template.innerHTML=html;
+  template.content.querySelectorAll('script,style,header,footer,nav,aside,form,iframe,object,embed,svg,canvas,[hidden],[aria-hidden="true"],.advertisement,.advertising,.ads,.ad').forEach(node=>node.remove());
+  const blocks=new Set(['P','DIV','SECTION','ARTICLE','H1','H2','H3','H4','H5','H6','LI','TR','BR']);
+  function textOf(node){
+    if(node.nodeType===Node.TEXT_NODE)return node.nodeValue;
+    if(node.nodeType!==Node.ELEMENT_NODE&&node.nodeType!==Node.DOCUMENT_FRAGMENT_NODE)return '';
+    const text=Array.from(node.childNodes,textOf).join('');
+    return blocks.has(node.nodeName)?'\n'+text+'\n':text;
+  }
+  return textOf(template.content).replace(/\u00a0/g,' ').replace(/[ \t]+\n/g,'\n').replace(/\n[ \t]+/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
+}
+function tvplError(error){
+  tvplStatus(error instanceof TypeError?'Không thể kết nối proxy. Kiểm tra mạng, CORS và cấu hình.':error.message||'Không thể xử lý yêu cầu.');
+}
+$('toggleTvpl').onclick=()=>{
+  const settings=$('tvplSettings');
+  settings.hidden=!settings.hidden;
+  $('toggleTvpl').setAttribute('aria-expanded',String(!settings.hidden));
+};
+$('tvplLogin').onclick=async()=>{
+  const username=$('tvplUser').value.trim();
+  const pass = $('tvplPassword').value;
+  if(!username||!pass){tvplStatus('Hãy nhập tài khoản và mật khẩu.');return;}
+  tvplBusy=true;tvplControls();tvplStatus('Đang đăng nhập...');
+  try{
+    const result=TVPL_API_BASE
+      ?await tvplRequest('/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password:pass})})
+      :{token:'mock-session'};
+    if(typeof result.token!=='string'||!result.token.trim())throw new Error('Proxy không trả về phiên đăng nhập hợp lệ.');
+    tvplToken=result.token;
+    $('tvplPassword').value='';
+    clearTvplResults();
+    $('tvplSettings').hidden=true;
+    $('toggleTvpl').setAttribute('aria-expanded','false');
+    tvplStatus(TVPL_API_BASE?'Đã đăng nhập Thư viện Pháp luật.':'Đã đăng nhập chế độ mẫu; kết quả không phải văn bản thực.');
+  }catch(error){tvplError(error);}
+  finally{tvplBusy=false;tvplControls();}
+};
+$('tvplLogout').onclick=()=>{
+  tvplToken='';
+  $('tvplPassword').value='';
+  clearTvplResults();
+  tvplStatus('Đã xóa phiên trên trang.');
+};
+$('tvplSearch').onclick=async()=>{
+  const query=$('tvplQuery').value.trim();
+  if(!query){tvplStatus('Hãy nhập từ khóa hoặc số hiệu văn bản.');return;}
+  clearTvplResults();
+  tvplBusy=true;tvplControls();tvplStatus('Đang tìm kiếm...');
+  try{
+    const result=TVPL_API_BASE
+      ?await tvplRequest('/documents?q='+encodeURIComponent(query))
+      :{results:tvplMockDocuments.filter(item=>(item.title+' '+item.number+' '+item.summary+' '+item.text).toLocaleLowerCase('vi').includes(query.toLocaleLowerCase('vi')))};
+    if(!Array.isArray(result.results))throw new Error('Proxy trả về danh sách kết quả không hợp lệ.');
+    tvplResults=result.results.filter(item=>item&&typeof item.id==='string'&&item.id&&!['.','..'].includes(item.id)&&typeof item.title==='string'&&item.title);
+    $('tvplResults').replaceChildren();
+    if(!tvplResults.length){
+      $('tvplResults').appendChild(new Option('Không có kết quả',''));
+      tvplStatus('Không tìm thấy văn bản.');
+    }else{
+      tvplResults.forEach((item,index)=>{
+        const label=[item.title,typeof item.number==='string'?item.number:'',typeof item.summary==='string'?item.summary:''].filter(Boolean).join(' — ');
+        $('tvplResults').appendChild(new Option(label,String(index)));
+      });
+      tvplStatus('Tìm thấy '+tvplResults.length+' kết quả'+(TVPL_API_BASE?'.':' mẫu.'));
+    }
+  }catch(error){tvplError(error);}
+  finally{tvplBusy=false;tvplControls();}
+};
+$('tvplResults').onchange=tvplControls;
+$('tvplLoad').onclick=async()=>{
+  const item=tvplResults[Number($('tvplResults').value)];
+  if(!item)return;
+  tvplBusy=true;tvplControls();tvplStatus('Đang tải văn bản...');
+  try{
+    const result=TVPL_API_BASE?await tvplRequest('/documents/'+encodeURIComponent(item.id)):item;
+    const text=typeof result.text==='string'?result.text.trim():typeof result.html==='string'?cleanTvplHtml(result.html):'';
+    if(!text)throw new Error('Không tìm thấy nội dung văn bản.');
+    $('textInput').value=text;
+    $('textInput').dispatchEvent(new Event('input',{bubbles:true}));
+    $('textInput').dispatchEvent(new Event('change',{bubbles:true}));
+    tvplStatus('Đã tải văn bản vào ô Văn bản. Bạn có thể đọc ngay hoặc tạo MP3.');
+  }catch(error){tvplError(error);}
+  finally{tvplBusy=false;tvplControls();}
+};
+tvplStatus(TVPL_API_BASE?'Hãy đăng nhập để tìm văn bản.':'Chế độ mẫu: chưa cấu hình TVPL_API_BASE; không kết nối Thư viện Pháp luật.');
+tvplControls();
 $('selectAll').onclick=()=>{$('textInput').focus();$('textInput').select();};
 $('fileInput').onchange=event=>{
   const input=event.target;
