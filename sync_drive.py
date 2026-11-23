@@ -1,5 +1,6 @@
 import io
 import json
+import logging
 import os
 import re
 import shutil
@@ -23,7 +24,7 @@ MAX_XML = 50 * 1024 * 1024
 WORD = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 
 
-class DocumentError(Exception):
+class DriveAuthenticationError(Exception):
     pass
 
 
@@ -31,6 +32,20 @@ def drive_request(session, path="", params=None, limit=MAX_FILE):
     with session.get(API + path, params=params, timeout=60, stream=True,
                      allow_redirects=False) as response:
         if response.status_code != 200:
+            if response.status_code == 401:
+                raise DriveAuthenticationError("Google Drive xác thực thất bại.")
+            if response.status_code == 403:
+                try:
+                    error = response.json().get("error", {})
+                    reasons = {detail.get("reason") for detail in error.get("errors", [])
+                               if isinstance(detail, dict)}
+                    reasons.add(error.get("status"))
+                except (AttributeError, TypeError, ValueError):
+                    reasons = set()
+                if reasons.intersection(
+                        {"authError", "invalidCredentials", "insufficientPermissions",
+                         "ACCESS_TOKEN_SCOPE_INSUFFICIENT"}):
+                    raise DriveAuthenticationError("Google Drive xác thực thất bại.")
             raise ValueError(f"Google Drive trả về HTTP {response.status_code}.")
         chunks = []
         size = 0
@@ -155,9 +170,12 @@ def sync(session, root):
                 text = docx_text(data) if item["mimeType"] == DOCX else pdf_text(data)
                 if not text:
                     raise ValueError("Không có văn bản; PDF ảnh chưa được hỗ trợ OCR.")
-            except Exception:
-                raise DocumentError(f"Không thể xử lý tài liệu ID {file_id}. "
-                                    "Kiểm tra định dạng, kích thước và lớp văn bản.") from None
+            except DriveAuthenticationError:
+                raise
+            except Exception as error:
+                logging.warning("Bỏ qua tài liệu '%s' (ID %s): %s",
+                                item["name"], file_id, error)
+                continue
             write_json(staging / (file_id + ".json"), {"text": text})
             results.append({"id": file_id, "title": item["name"]})
         target = root / "documents"
@@ -179,8 +197,6 @@ def main():
             info, scopes=["https://www.googleapis.com/auth/drive.readonly"])
         with AuthorizedSession(credentials) as session:
             sync(session, Path(__file__).resolve().parent)
-    except DocumentError as error:
-        raise SystemExit(str(error)) from None
     except Exception:
         raise SystemExit("Đồng bộ thất bại. Kiểm tra secret NGHE_VB, quyền Drive và định dạng tài liệu.") from None
 

@@ -70,11 +70,6 @@ class SyncTests(unittest.TestCase):
             (root / "documents" / "old.json").write_text("old", encoding="utf-8")
             (root / "documents.json").write_text("old index", encoding="utf-8")
             with patch.object(sync_drive, "documents", return_value=items):
-                with patch.object(sync_drive, "drive_request", side_effect=[folder, b"invalid"]):
-                    with self.assertRaises(sync_drive.DocumentError):
-                        sync_drive.sync(None, root)
-                self.assertEqual((root / "documents.json").read_text(), "old index")
-                self.assertTrue((root / "documents" / "old.json").exists())
                 with patch.object(sync_drive, "drive_request", side_effect=[folder, make_docx()]):
                     sync_drive.sync(None, root)
             self.assertFalse((root / "documents" / "old.json").exists())
@@ -82,6 +77,28 @@ class SyncTests(unittest.TestCase):
                              [{"id": "abc_1", "title": "Tên.docx"}])
             self.assertEqual(json.loads((root / "documents" / "abc_1.json").read_text())["text"],
                              "Tiếng Việt\nNội dung bảng")
+
+    def test_sync_skips_invalid_document_and_processes_valid_documents(self):
+        items = [
+            {"id": "bad_1", "name": "Scan.pdf", "mimeType": sync_drive.PDF, "size": "30"},
+            {"id": "good_1", "name": "Tốt.docx", "mimeType": sync_drive.DOCX, "size": "40"},
+        ]
+        folder = json.dumps({"id": sync_drive.FOLDER_ID,
+                             "mimeType": "application/vnd.google-apps.folder"}).encode()
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            with patch.object(sync_drive, "documents", return_value=items):
+                with patch.object(sync_drive, "drive_request",
+                                  side_effect=[folder, b"invalid PDF", make_docx()]):
+                    with self.assertLogs(level="WARNING") as logs:
+                        sync_drive.sync(None, root)
+            warning = "\n".join(logs.output)
+            self.assertIn("Scan.pdf", warning)
+            self.assertIn("bad_1", warning)
+            self.assertEqual(json.loads((root / "documents.json").read_text())["results"],
+                             [{"id": "good_1", "title": "Tốt.docx"}])
+            self.assertFalse((root / "documents" / "bad_1.json").exists())
+            self.assertTrue((root / "documents" / "good_1.json").exists())
 
     def test_inaccessible_folder_does_not_replace_data(self):
         with tempfile.TemporaryDirectory() as temp:
